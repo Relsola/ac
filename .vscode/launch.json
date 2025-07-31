@@ -1,0 +1,16 @@
+{
+	"version": "0.2.0",
+	"configurations": [
+		{
+			"name": "Launch",
+			"preLaunchTask": "CMake: configure",
+			"type": "cppdbg",
+			"request": "launch",
+			"program": "${workspaceFolder}/build/debug/bin/AliceCompiler",
+			"args": [],
+			"stopAtEntry": false,
+			"cwd": "${workspaceFolder}",
+			"environment": []
+		}
+	]
+}

@@ -1,37 +1,32 @@
 #include <cstdlib>
 #include <iostream>
 
-int main(int argc, char const* argv[]) {
-  if (argc != 2) {
-    std::cerr << argv[0] << ": invalid number of arguments\n";
-    return 1;
-  }
+#include "core.h"
 
-  char* p = (char*)argv[1];
+int main(int argc, char const* argv[]) {
+  if (argc != 2) error("%s: invalid number of arguments", argv[0]);
+
+  Token* tok = tokenize((char*)argv[1]);
 
   std::cout << "  .globl main\n";
   std::cout << "main:\n";
-  std::cout << "  mov $" << strtol(p, &p, 10) << ", %rax\n";
 
-  while (*p) {
-    if (*p == '+') {
-      p++;
-      std::cout << "  add $" << strtol(p, &p, 10) << ", %rax\n";
+  std::cout << "  mov $" << tok->get_number() << ", %rax\n";
+  tok = tok->next;
+
+  while (tok->kind != Token::TokenKind::TK_EOF) {
+    if (tok->equal("+")) {
+      tok = tok->next;
+      std::cout << "  add $" << tok->get_number() << ", %rax\n";
+      tok = tok->next;
       continue;
     }
 
-    if (*p == '-') {
-      p++;
-      std::cout << "  sub $" << strtol(p, &p, 10) << ", %rax\n";
-      continue;
-    }
-
-    std::cout << "unexpected character: '" << *p << "'\n";
-
-    return 1;
+    tok = tok->skip("-");
+    std::cout << "  sub $" << tok->get_number() << ", %rax\n";
+    tok = tok->next;
   }
 
   std::cout << "  ret" << std::endl;
-
   return 0;
 }
