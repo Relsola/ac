@@ -1,5 +1,5 @@
 #!/bin/bash
-assert_execution() {
+assert() {
   expected="$1"
   input="$2"
 
@@ -13,14 +13,15 @@ assert_execution() {
 
 	if [ "$actual" = "$expected" ]; then
     echo "$input => $actual"
+		rm -f tmp
   else
     echo "$input => $expected expected, but got $actual"
     exit 1
   fi
 }
 
-assert_execution 0 0
-assert_execution 42 42
-assert_execution 123 123
+assert 0 0
+assert 42 42
+assert 21 '5+20-4'
 
 echo OK
