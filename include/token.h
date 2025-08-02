@@ -2,8 +2,6 @@
 
 #include <string>
 
-#include "utils.h"
-
 class Token {
  public:
   enum class TokenKind {
@@ -12,14 +10,14 @@ class Token {
     TK_EOF,    // End-of-file markers
   };
 
-  TokenKind kind;     // Token kind
-  Token *next;        // Next token
-  int val;            // If kind is TK_NUM, its value
-  std::string punct;  // If kind is TK_PUNCT, its value
+  TokenKind kind;  // Token kind
+  Token *next;     // Next token
+  int val;         // If kind is TK_NUM, its value
+  char *loc;       // Token location
+  int len;         // Token length
 
   Token();
-  Token(TokenKind kind);
-  Token(TokenKind kind, std::string punct);
+  Token(TokenKind kind, char *start, char *end);
 
   bool equal(char *op);
 
