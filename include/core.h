@@ -5,7 +5,9 @@
 #include <stdlib.h>
 #include <string.h>
 
+#include "function.h"
 #include "node.h"
+#include "obj.h"
 #include "token.h"
 
 void error(char *fmt, ...);
@@ -16,6 +18,6 @@ void error_tok(Token *tok, char *fmt, ...);
 
 Token *tokenize(char *p);
 
-Node *parse(Token *tok);
+Function *parse(Token *tok);
 
-void codegen(Node *node);
+void codegen(Function *prog);

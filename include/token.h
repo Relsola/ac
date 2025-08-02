@@ -5,9 +5,11 @@
 class Token {
  public:
   enum class TokenKind {
-    TK_PUNCT,  // Punctuators
-    TK_NUM,    // Numeric literals
-    TK_EOF,    // End-of-file markers
+    TK_IDENT,    // Identifiers
+    TK_PUNCT,    // Punctuators
+    TK_KEYWORD,  // Keywords
+    TK_NUM,      // Numeric literals
+    TK_EOF,      // End-of-file markers
   };
 
   TokenKind kind;  // Token kind
