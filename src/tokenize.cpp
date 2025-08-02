@@ -2,19 +2,19 @@
 
 static char *current_input;
 
-void error(char *fmt, ...) {
-  va_list ap;
-  va_start(ap, fmt);
+static void verror_at(char *loc, char *fmt, va_list ap) {
+  int pos = loc - current_input;
+  fprintf(stderr, "%s\n", current_input);
+  fprintf(stderr, "%*s", pos, "");  // print pos spaces.
+  fprintf(stderr, "^ ");
   vfprintf(stderr, fmt, ap);
   fprintf(stderr, "\n");
   std::exit(1);
 }
 
-void verror_at(char *loc, char *fmt, va_list ap) {
-  int pos = loc - current_input;
-  fprintf(stderr, "%s\n", current_input);
-  fprintf(stderr, "%*s", pos, "");  // print pos spaces.
-  fprintf(stderr, "^ ");
+void error(char *fmt, ...) {
+  va_list ap;
+  va_start(ap, fmt);
   vfprintf(stderr, fmt, ap);
   fprintf(stderr, "\n");
   std::exit(1);
@@ -30,6 +30,19 @@ void error_tok(Token *tok, char *fmt, ...) {
   va_list ap;
   va_start(ap, fmt);
   verror_at(tok->loc, fmt, ap);
+}
+
+static bool startswith(char *p, char *q) {
+  return strncmp(p, q, strlen(q)) == 0;
+}
+
+// Read a punctuator token from p and returns its length.
+static int read_punct(char *p) {
+  if (startswith(p, "==") || startswith(p, "!=") || startswith(p, "<=") ||
+      startswith(p, ">="))
+    return 2;
+
+  return ispunct(*p) ? 1 : 0;
 }
 
 Token *tokenize(char *p) {
@@ -51,9 +64,10 @@ Token *tokenize(char *p) {
       continue;
     }
 
-    if (*p == '+' || *p == '-') {
-      cur = cur->next = new Token(Token::TokenKind::TK_PUNCT, p, p + 1);
-      p++;
+    int punct_len = read_punct(p);
+    if (punct_len > 0) {
+      cur = cur->next = new Token(Token::TokenKind::TK_PUNCT, p, p + punct_len);
+      p += punct_len;
       continue;
     }
 
