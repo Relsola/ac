@@ -14,8 +14,8 @@ Obj *new_lvar(char *name) {
 }
 
 static Node *compound_stmt(Token **rest, Token *tok);
-static Node *expr(Token **rest, Token *tok);
 static Node *expr_stmt(Token **rest, Token *tok);
+static Node *expr(Token **rest, Token *tok);
 static Node *assign(Token **rest, Token *tok);
 static Node *equality(Token **rest, Token *tok);
 static Node *relational(Token **rest, Token *tok);
@@ -41,13 +41,14 @@ static Obj *find_var(Token *tok) {
 //      | expr-stmt
 static Node *stmt(Token **rest, Token *tok) {
   if (tok->equal("return")) {
-    Node *node = new Node(Node::NodeKind::ND_RETURN, expr(&tok, tok->next));
+    Node *node = new Node(Node::NodeKind::ND_RETURN, tok);
+    node->lhs = expr(&tok, tok->next);
     *rest = tok->skip(";");
     return node;
   }
 
   if (tok->equal("if")) {
-    Node *node = new Node(Node::NodeKind::ND_IF);
+    Node *node = new Node(Node::NodeKind::ND_IF, tok);
     tok = tok->next->skip("(");
     node->cond = expr(&tok, tok);
     tok = tok->skip(")");
@@ -58,7 +59,7 @@ static Node *stmt(Token **rest, Token *tok) {
   }
 
   if (tok->equal("for")) {
-    Node *node = new Node(Node::NodeKind::ND_FOR);
+    Node *node = new Node(Node::NodeKind::ND_FOR, tok);
     tok = tok->next->skip("(");
 
     node->init = expr_stmt(&tok, tok);
@@ -74,7 +75,7 @@ static Node *stmt(Token **rest, Token *tok) {
   }
 
   if (tok->equal("while")) {
-    Node *node = new Node(Node::NodeKind::ND_FOR);
+    Node *node = new Node(Node::NodeKind::ND_FOR, tok);
     tok = tok->next->skip("(");
     node->cond = expr(&tok, tok);
     tok = tok->skip(")");
@@ -93,7 +94,7 @@ static Node *compound_stmt(Token **rest, Token *tok) {
   Node *cur = &head;
   while (!tok->equal("}")) cur = cur->next = stmt(&tok, tok);
 
-  Node *node = new Node(Node::NodeKind::ND_BLOCK);
+  Node *node = new Node(Node::NodeKind::ND_BLOCK, tok);
   node->body = head.next;
   *rest = tok->next;
   return node;
@@ -103,10 +104,11 @@ static Node *compound_stmt(Token **rest, Token *tok) {
 static Node *expr_stmt(Token **rest, Token *tok) {
   if (tok->equal(";")) {
     *rest = tok->next;
-    return new Node(Node::NodeKind::ND_BLOCK);
+    return new Node(Node::NodeKind::ND_BLOCK, tok);
   }
 
-  Node *node = new Node(Node::NodeKind::ND_EXPR_STMT, expr(&tok, tok));
+  Node *node = new Node(Node::NodeKind::ND_EXPR_STMT, tok);
+  node->lhs = expr(&tok, tok);
   *rest = tok->skip(";");
   return node;
 }
@@ -118,7 +120,8 @@ static Node *expr(Token **rest, Token *tok) { return assign(rest, tok); }
 static Node *assign(Token **rest, Token *tok) {
   Node *node = equality(&tok, tok);
   if (tok->equal("="))
-    node = new Node(Node::NodeKind::ND_ASSIGN, node, assign(&tok, tok->next));
+    node =
+        new Node(Node::NodeKind::ND_ASSIGN, node, assign(&tok, tok->next), tok);
   *rest = tok;
   return node;
 }
@@ -128,13 +131,17 @@ static Node *equality(Token **rest, Token *tok) {
   Node *node = relational(&tok, tok);
 
   for (;;) {
+    Token *start = tok;
+
     if (tok->equal("==")) {
-      node = new Node(Node::NodeKind::ND_EQ, node, relational(&tok, tok->next));
+      node = new Node(Node::NodeKind::ND_EQ, node, relational(&tok, tok->next),
+                      start);
       continue;
     }
 
     if (tok->equal("!=")) {
-      node = new Node(Node::NodeKind::ND_NE, node, relational(&tok, tok->next));
+      node = new Node(Node::NodeKind::ND_NE, node, relational(&tok, tok->next),
+                      start);
       continue;
     }
 
@@ -148,23 +155,25 @@ static Node *relational(Token **rest, Token *tok) {
   Node *node = add(&tok, tok);
 
   for (;;) {
+    Token *start = tok;
+
     if (tok->equal("<")) {
-      node = new Node(Node::NodeKind::ND_LT, node, add(&tok, tok->next));
+      node = new Node(Node::NodeKind::ND_LT, node, add(&tok, tok->next), start);
       continue;
     }
 
     if (tok->equal("<=")) {
-      node = new Node(Node::NodeKind::ND_LE, node, add(&tok, tok->next));
+      node = new Node(Node::NodeKind::ND_LE, node, add(&tok, tok->next), start);
       continue;
     }
 
     if (tok->equal(">")) {
-      node = new Node(Node::NodeKind::ND_LT, add(&tok, tok->next), node);
+      node = new Node(Node::NodeKind::ND_LT, add(&tok, tok->next), node, start);
       continue;
     }
 
     if (tok->equal(">=")) {
-      node = new Node(Node::NodeKind::ND_LE, add(&tok, tok->next), node);
+      node = new Node(Node::NodeKind::ND_LE, add(&tok, tok->next), node, start);
       continue;
     }
 
@@ -178,13 +187,17 @@ static Node *add(Token **rest, Token *tok) {
   Node *node = mul(&tok, tok);
 
   for (;;) {
+    Token *start = tok;
+
     if (tok->equal("+")) {
-      node = new Node(Node::NodeKind::ND_ADD, node, mul(&tok, tok->next));
+      node =
+          new Node(Node::NodeKind::ND_ADD, node, mul(&tok, tok->next), start);
       continue;
     }
 
     if (tok->equal("-")) {
-      node = new Node(Node::NodeKind::ND_SUB, node, mul(&tok, tok->next));
+      node =
+          new Node(Node::NodeKind::ND_SUB, node, mul(&tok, tok->next), start);
       continue;
     }
 
@@ -198,13 +211,17 @@ static Node *mul(Token **rest, Token *tok) {
   Node *node = unary(&tok, tok);
 
   for (;;) {
+    Token *start = tok;
+
     if (tok->equal("*")) {
-      node = new Node(Node::NodeKind::ND_MUL, node, unary(&tok, tok->next));
+      node =
+          new Node(Node::NodeKind::ND_MUL, node, unary(&tok, tok->next), start);
       continue;
     }
 
     if (tok->equal("/")) {
-      node = new Node(Node::NodeKind::ND_DIV, node, unary(&tok, tok->next));
+      node =
+          new Node(Node::NodeKind::ND_DIV, node, unary(&tok, tok->next), start);
       continue;
     }
 
@@ -219,7 +236,7 @@ static Node *unary(Token **rest, Token *tok) {
   if (tok->equal("+")) return unary(rest, tok->next);
 
   if (tok->equal("-"))
-    return new Node(Node::NodeKind::ND_NEG, unary(rest, tok->next));
+    return new Node(Node::NodeKind::ND_NEG, unary(rest, tok->next), tok);
 
   return primary(rest, tok);
 }
@@ -236,11 +253,11 @@ static Node *primary(Token **rest, Token *tok) {
     Obj *var = find_var(tok);
     if (!var) var = new_lvar(strndup(tok->loc, tok->len));
     *rest = tok->next;
-    return new Node(var);
+    return new Node(var, tok);
   }
 
   if (tok->kind == Token::TokenKind::TK_NUM) {
-    Node *node = new Node(tok->val);
+    Node *node = new Node(tok->val, tok);
     *rest = tok->next;
     return node;
   }

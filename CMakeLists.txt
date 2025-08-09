@@ -2,7 +2,7 @@
 cmake_minimum_required(VERSION 3.16)
 
 # 设置项目名称和版本
-project(AliceCompiler VERSION 0.0.1 LANGUAGES CXX)
+project(ac VERSION 0.0.1 LANGUAGES CXX)
 
 # 设置C++标准
 set(CMAKE_CXX_STANDARD 17)

@@ -1,6 +1,7 @@
 #pragma once
 
 #include "obj.h";
+#include "token.h"
 
 class Node {
  public:
@@ -26,6 +27,7 @@ class Node {
 
   NodeKind kind;  // Node kind
   Node *next;     // Next node
+  Token *tok;     // Representative token
 
   Node *lhs;  // Left-hand side
   Node *rhs;  // Right-hand side
@@ -44,9 +46,9 @@ class Node {
   int val;   // Used if kind == ND_NUM
 
   Node();
-  Node(NodeKind kind);
-  Node(NodeKind kind, Node *lhs, Node *rhs);
-  Node(NodeKind kind, Node *expr);
-  Node(int val);
-  Node(Obj *var);
+  Node(NodeKind kind, Token *tok);
+  Node(NodeKind kind, Node *lhs, Node *rhs, Token *tok);
+  Node(NodeKind kind, Node *expr, Token *tok);
+  Node(int val, Token *tok);
+  Node(Obj *var, Token *tok);
 };
