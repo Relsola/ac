@@ -14,6 +14,7 @@ Obj *new_lvar(char *name) {
 }
 
 static Node *compound_stmt(Token **rest, Token *tok);
+static Node *stmt(Token **rest, Token *tok);
 static Node *expr_stmt(Token **rest, Token *tok);
 static Node *expr(Token **rest, Token *tok);
 static Node *assign(Token **rest, Token *tok);
@@ -41,14 +42,14 @@ static Obj *find_var(Token *tok) {
 //      | expr-stmt
 static Node *stmt(Token **rest, Token *tok) {
   if (tok->equal("return")) {
-    Node *node = new Node(Node::NodeKind::ND_RETURN, tok);
+    Node *node = new Node(NodeKind::ND_RETURN, tok);
     node->lhs = expr(&tok, tok->next);
     *rest = tok->skip(";");
     return node;
   }
 
   if (tok->equal("if")) {
-    Node *node = new Node(Node::NodeKind::ND_IF, tok);
+    Node *node = new Node(NodeKind::ND_IF, tok);
     tok = tok->next->skip("(");
     node->cond = expr(&tok, tok);
     tok = tok->skip(")");
@@ -59,7 +60,7 @@ static Node *stmt(Token **rest, Token *tok) {
   }
 
   if (tok->equal("for")) {
-    Node *node = new Node(Node::NodeKind::ND_FOR, tok);
+    Node *node = new Node(NodeKind::ND_FOR, tok);
     tok = tok->next->skip("(");
 
     node->init = expr_stmt(&tok, tok);
@@ -75,7 +76,7 @@ static Node *stmt(Token **rest, Token *tok) {
   }
 
   if (tok->equal("while")) {
-    Node *node = new Node(Node::NodeKind::ND_FOR, tok);
+    Node *node = new Node(NodeKind::ND_FOR, tok);
     tok = tok->next->skip("(");
     node->cond = expr(&tok, tok);
     tok = tok->skip(")");
@@ -92,9 +93,12 @@ static Node *stmt(Token **rest, Token *tok) {
 static Node *compound_stmt(Token **rest, Token *tok) {
   Node head = {};
   Node *cur = &head;
-  while (!tok->equal("}")) cur = cur->next = stmt(&tok, tok);
+  while (!tok->equal("}")) {
+    cur = cur->next = stmt(&tok, tok);
+    add_type(cur);
+  }
 
-  Node *node = new Node(Node::NodeKind::ND_BLOCK, tok);
+  Node *node = new Node(NodeKind::ND_BLOCK, tok);
   node->body = head.next;
   *rest = tok->next;
   return node;
@@ -104,10 +108,10 @@ static Node *compound_stmt(Token **rest, Token *tok) {
 static Node *expr_stmt(Token **rest, Token *tok) {
   if (tok->equal(";")) {
     *rest = tok->next;
-    return new Node(Node::NodeKind::ND_BLOCK, tok);
+    return new Node(NodeKind::ND_BLOCK, tok);
   }
 
-  Node *node = new Node(Node::NodeKind::ND_EXPR_STMT, tok);
+  Node *node = new Node(NodeKind::ND_EXPR_STMT, tok);
   node->lhs = expr(&tok, tok);
   *rest = tok->skip(";");
   return node;
@@ -120,8 +124,7 @@ static Node *expr(Token **rest, Token *tok) { return assign(rest, tok); }
 static Node *assign(Token **rest, Token *tok) {
   Node *node = equality(&tok, tok);
   if (tok->equal("="))
-    node =
-        new Node(Node::NodeKind::ND_ASSIGN, node, assign(&tok, tok->next), tok);
+    node = new Node(NodeKind::ND_ASSIGN, node, assign(&tok, tok->next), tok);
   *rest = tok;
   return node;
 }
@@ -134,14 +137,14 @@ static Node *equality(Token **rest, Token *tok) {
     Token *start = tok;
 
     if (tok->equal("==")) {
-      node = new Node(Node::NodeKind::ND_EQ, node, relational(&tok, tok->next),
-                      start);
+      node =
+          new Node(NodeKind::ND_EQ, node, relational(&tok, tok->next), start);
       continue;
     }
 
     if (tok->equal("!=")) {
-      node = new Node(Node::NodeKind::ND_NE, node, relational(&tok, tok->next),
-                      start);
+      node =
+          new Node(NodeKind::ND_NE, node, relational(&tok, tok->next), start);
       continue;
     }
 
@@ -158,28 +161,78 @@ static Node *relational(Token **rest, Token *tok) {
     Token *start = tok;
 
     if (tok->equal("<")) {
-      node = new Node(Node::NodeKind::ND_LT, node, add(&tok, tok->next), start);
+      node = new Node(NodeKind::ND_LT, node, add(&tok, tok->next), start);
       continue;
     }
 
     if (tok->equal("<=")) {
-      node = new Node(Node::NodeKind::ND_LE, node, add(&tok, tok->next), start);
+      node = new Node(NodeKind::ND_LE, node, add(&tok, tok->next), start);
       continue;
     }
 
     if (tok->equal(">")) {
-      node = new Node(Node::NodeKind::ND_LT, add(&tok, tok->next), node, start);
+      node = new Node(NodeKind::ND_LT, add(&tok, tok->next), node, start);
       continue;
     }
 
     if (tok->equal(">=")) {
-      node = new Node(Node::NodeKind::ND_LE, add(&tok, tok->next), node, start);
+      node = new Node(NodeKind::ND_LE, add(&tok, tok->next), node, start);
       continue;
     }
 
     *rest = tok;
     return node;
   }
+}
+
+static Node *new_add(Node *lhs, Node *rhs, Token *tok) {
+  add_type(lhs);
+  add_type(rhs);
+
+  // num + num
+  if (lhs->ty->is_integer() && rhs->ty->is_integer())
+    return new Node(NodeKind::ND_ADD, lhs, rhs, tok);
+
+  if (lhs->ty->base && rhs->ty->base) error_tok(tok, "invalid operands");
+
+  // Canonicalize `num + ptr` to `ptr + num`.
+  if (!lhs->ty->base && rhs->ty->base) {
+    Node *tmp = lhs;
+    lhs = rhs;
+    rhs = tmp;
+  }
+
+  // ptr + num
+  rhs = new Node(NodeKind::ND_MUL, rhs, new Node(8, tok), tok);
+  return new Node(NodeKind::ND_ADD, lhs, rhs, tok);
+}
+
+// Like `+`, `-` is overloaded for the pointer type.
+static Node *new_sub(Node *lhs, Node *rhs, Token *tok) {
+  add_type(lhs);
+  add_type(rhs);
+
+  // num - num
+  if (lhs->ty->is_integer() && rhs->ty->is_integer())
+    return new Node(NodeKind::ND_SUB, lhs, rhs, tok);
+
+  // ptr - num
+  if (lhs->ty->base && rhs->ty->is_integer()) {
+    rhs = new Node(NodeKind::ND_MUL, rhs, new Node(8, tok), tok);
+    add_type(rhs);
+    Node *node = new Node(NodeKind::ND_SUB, lhs, rhs, tok);
+    node->ty = lhs->ty;
+    return node;
+  }
+
+  // ptr - ptr, which returns how many elements are between the two.
+  if (lhs->ty->base && rhs->ty->base) {
+    Node *node = new Node(NodeKind::ND_SUB, lhs, rhs, tok);
+    node->ty = Type::ty_int;
+    return new Node(NodeKind::ND_DIV, node, new Node(8, tok), tok);
+  }
+
+  error_tok(tok, "invalid operands");
 }
 
 // add = mul ("+" mul | "-" mul)*
@@ -190,14 +243,12 @@ static Node *add(Token **rest, Token *tok) {
     Token *start = tok;
 
     if (tok->equal("+")) {
-      node =
-          new Node(Node::NodeKind::ND_ADD, node, mul(&tok, tok->next), start);
+      node = node = new_add(node, mul(&tok, tok->next), start);
       continue;
     }
 
     if (tok->equal("-")) {
-      node =
-          new Node(Node::NodeKind::ND_SUB, node, mul(&tok, tok->next), start);
+      node = new_sub(node, mul(&tok, tok->next), start);
       continue;
     }
 
@@ -214,14 +265,12 @@ static Node *mul(Token **rest, Token *tok) {
     Token *start = tok;
 
     if (tok->equal("*")) {
-      node =
-          new Node(Node::NodeKind::ND_MUL, node, unary(&tok, tok->next), start);
+      node = new Node(NodeKind::ND_MUL, node, unary(&tok, tok->next), start);
       continue;
     }
 
     if (tok->equal("/")) {
-      node =
-          new Node(Node::NodeKind::ND_DIV, node, unary(&tok, tok->next), start);
+      node = new Node(NodeKind::ND_DIV, node, unary(&tok, tok->next), start);
       continue;
     }
 
@@ -230,13 +279,19 @@ static Node *mul(Token **rest, Token *tok) {
   }
 }
 
-// unary = ("+" | "-") unary
+// unary = ("+" | "-" | "*" | "&") unary
 //       | primary
 static Node *unary(Token **rest, Token *tok) {
   if (tok->equal("+")) return unary(rest, tok->next);
 
   if (tok->equal("-"))
-    return new Node(Node::NodeKind::ND_NEG, unary(rest, tok->next), tok);
+    return new Node(NodeKind::ND_NEG, unary(rest, tok->next), tok);
+
+  if (tok->equal("&"))
+    return new Node(NodeKind::ND_ADDR, unary(rest, tok->next), tok);
+
+  if (tok->equal("*"))
+    return new Node(NodeKind::ND_DEREF, unary(rest, tok->next), tok);
 
   return primary(rest, tok);
 }
@@ -249,14 +304,14 @@ static Node *primary(Token **rest, Token *tok) {
     return node;
   }
 
-  if (tok->kind == Token::TokenKind::TK_IDENT) {
+  if (tok->kind == TokenKind::TK_IDENT) {
     Obj *var = find_var(tok);
     if (!var) var = new_lvar(strndup(tok->loc, tok->len));
     *rest = tok->next;
     return new Node(var, tok);
   }
 
-  if (tok->kind == Token::TokenKind::TK_NUM) {
+  if (tok->kind == TokenKind::TK_NUM) {
     Node *node = new Node(tok->val, tok);
     *rest = tok->next;
     return node;

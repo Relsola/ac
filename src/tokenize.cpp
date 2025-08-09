@@ -62,8 +62,8 @@ static bool is_keyword(Token *tok) {
 }
 
 static void convert_keywords(Token *tok) {
-  for (Token *t = tok; t->kind != Token::TokenKind::TK_EOF; t = t->next)
-    if (is_keyword(t)) t->kind = Token::TokenKind::TK_KEYWORD;
+  for (Token *t = tok; t->kind != TokenKind::TK_EOF; t = t->next)
+    if (is_keyword(t)) t->kind = TokenKind::TK_KEYWORD;
 }
 
 Token *tokenize(char *p) {
@@ -80,7 +80,7 @@ Token *tokenize(char *p) {
 
     // Numeric literal
     if (isdigit(*p)) {
-      cur = cur->next = new Token(Token::TokenKind::TK_NUM, p, p);
+      cur = cur->next = new Token(TokenKind::TK_NUM, p, p);
       char *q = p;
       cur->val = strtoul(p, &p, 10);
       cur->len = p - q;
@@ -93,14 +93,14 @@ Token *tokenize(char *p) {
       do {
         p++;
       } while (is_ident2(*p));
-      cur = cur->next = new Token(Token::TokenKind::TK_IDENT, start, p);
+      cur = cur->next = new Token(TokenKind::TK_IDENT, start, p);
       continue;
     }
 
     // Punctuators
     int punct_len = read_punct(p);
     if (punct_len) {
-      cur = cur->next = new Token(Token::TokenKind::TK_PUNCT, p, p + punct_len);
+      cur = cur->next = new Token(TokenKind::TK_PUNCT, p, p + punct_len);
       p += cur->len;
       continue;
     }
@@ -108,7 +108,7 @@ Token *tokenize(char *p) {
     error_at(p, "invalid token");
   }
 
-  cur = cur->next = new Token(Token::TokenKind::TK_EOF, p, p);
+  cur = cur->next = new Token(TokenKind::TK_EOF, p, p);
   convert_keywords(head.next);
   return head.next;
 }

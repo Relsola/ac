@@ -2,6 +2,8 @@
 
 static int depth;
 
+static void gen_expr(Node *node);
+
 static int count(void) {
   static int i = 1;
   return i++;
@@ -26,9 +28,14 @@ static int align_to(int n, int align) {
 // Compute the absolute address of a given node.
 // It's an error if a given node does not reside in memory.
 static void gen_addr(Node *node) {
-  if (node->kind == Node::NodeKind::ND_VAR) {
-    printf("  lea %d(%%rbp), %%rax\n", node->var->offset);
-    return;
+  switch (node->kind) {
+    case NodeKind::ND_VAR:
+      printf("  lea %d(%%rbp), %%rax\n", node->var->offset);
+      return;
+
+    case NodeKind::ND_DEREF:
+      gen_expr(node->lhs);
+      return;
   }
 
   error_tok(node->tok, "not an lvalue");
@@ -37,18 +44,25 @@ static void gen_addr(Node *node) {
 // Generate code for a given node.
 static void gen_expr(Node *node) {
   switch (node->kind) {
-    case Node::NodeKind::ND_NUM:
+    case NodeKind::ND_NUM:
       printf("  mov $%d, %%rax\n", node->val);
       return;
-    case Node::NodeKind::ND_NEG:
+    case NodeKind::ND_NEG:
       gen_expr(node->lhs);
       printf("  neg %%rax\n");
       return;
-    case Node::NodeKind::ND_VAR:
+    case NodeKind::ND_VAR:
       gen_addr(node);
       printf("  mov (%%rax), %%rax\n");
       return;
-    case Node::NodeKind::ND_ASSIGN:
+    case NodeKind::ND_DEREF:
+      gen_expr(node->lhs);
+      printf("  mov (%%rax), %%rax\n");
+      return;
+    case NodeKind::ND_ADDR:
+      gen_addr(node->lhs);
+      return;
+    case NodeKind::ND_ASSIGN:
       gen_addr(node->lhs);
       push();
       gen_expr(node->rhs);
@@ -63,32 +77,32 @@ static void gen_expr(Node *node) {
   pop("%rdi");
 
   switch (node->kind) {
-    case Node::NodeKind::ND_ADD:
+    case NodeKind::ND_ADD:
       printf("  add %%rdi, %%rax\n");
       return;
-    case Node::NodeKind::ND_SUB:
+    case NodeKind::ND_SUB:
       printf("  sub %%rdi, %%rax\n");
       return;
-    case Node::NodeKind::ND_MUL:
+    case NodeKind::ND_MUL:
       printf("  imul %%rdi, %%rax\n");
       return;
-    case Node::NodeKind::ND_DIV:
+    case NodeKind::ND_DIV:
       printf("  cqo\n");
       printf("  idiv %%rdi\n");
       return;
-    case Node::NodeKind::ND_EQ:
-    case Node::NodeKind::ND_NE:
-    case Node::NodeKind::ND_LT:
-    case Node::NodeKind::ND_LE:
+    case NodeKind::ND_EQ:
+    case NodeKind::ND_NE:
+    case NodeKind::ND_LT:
+    case NodeKind::ND_LE:
       printf("  cmp %%rdi, %%rax\n");
 
-      if (node->kind == Node::NodeKind::ND_EQ)
+      if (node->kind == NodeKind::ND_EQ)
         printf("  sete %%al\n");
-      else if (node->kind == Node::NodeKind::ND_NE)
+      else if (node->kind == NodeKind::ND_NE)
         printf("  setne %%al\n");
-      else if (node->kind == Node::NodeKind::ND_LT)
+      else if (node->kind == NodeKind::ND_LT)
         printf("  setl %%al\n");
-      else if (node->kind == Node::NodeKind::ND_LE)
+      else if (node->kind == NodeKind::ND_LE)
         printf("  setle %%al\n");
 
       printf("  movzb %%al, %%rax\n");
@@ -100,7 +114,7 @@ static void gen_expr(Node *node) {
 
 static void gen_stmt(Node *node) {
   switch (node->kind) {
-    case Node::NodeKind::ND_IF: {
+    case NodeKind::ND_IF: {
       int c = count();
       gen_expr(node->cond);
       printf("  cmp $0, %%rax\n");
@@ -112,7 +126,7 @@ static void gen_stmt(Node *node) {
       printf(".L.end.%d:\n", c);
       return;
     }
-    case Node::NodeKind::ND_FOR: {
+    case NodeKind::ND_FOR: {
       int c = count();
       if (node->init) gen_stmt(node->init);
       printf(".L.begin.%d:\n", c);
@@ -127,14 +141,14 @@ static void gen_stmt(Node *node) {
       printf(".L.end.%d:\n", c);
       return;
     }
-    case Node::NodeKind::ND_BLOCK:
+    case NodeKind::ND_BLOCK:
       for (Node *n = node->body; n; n = n->next) gen_stmt(n);
       return;
-    case Node::NodeKind::ND_RETURN:
+    case NodeKind::ND_RETURN:
       gen_expr(node->lhs);
       printf("  jmp .L.return\n");
       return;
-    case Node::NodeKind::ND_EXPR_STMT:
+    case NodeKind::ND_EXPR_STMT:
       gen_expr(node->lhs);
       return;
   }

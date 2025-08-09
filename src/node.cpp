@@ -1,4 +1,4 @@
-#include "node.h"
+#include "core.h"
 
 Node::Node(){};
 
