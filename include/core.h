@@ -46,13 +46,13 @@ enum class TypeKind : int {
 
 class Token {
  public:
-  TokenKind kind;  // Token kind
-  Token *next;     // Next token
-  int val;         // If kind is TK_NUM, its value
-  char *loc;       // Token location
-  int len;         // Token length
+  TokenKind kind = TokenKind::TK_EOF;  // Token kind
+  Token *next = nullptr;               // Next token
+  int val = 0;                         // If kind is TK_NUM, its value
+  char *loc = nullptr;                 // Token location
+  int len = 0;                         // Token length
 
-  Token();
+  Token() = default;
 
   Token(TokenKind kind, char *start, char *end);
 
@@ -61,59 +61,68 @@ class Token {
   Token *skip(char *s);
 
   int get_number();
+
+  bool consume(Token **rest, char *str);
 };
 
 class Obj {
  public:
-  Obj *next;
-  char *name;  // Variable name
-  int offset;  // Offset from RBP
+  Obj *next = nullptr;
+  char *name = nullptr;  // Variable name
+  Type *ty = nullptr;    // Type
+  int offset = 0;        // Offset from RBP
+
+  Obj() = default;
 };
 
 class Function {
  public:
-  Node *body;
-  Obj *locals;
-  int stack_size;
+  Node *body = nullptr;
+  Obj *locals = nullptr;
+  int stack_size = 0;
+
+  Function() = default;
 };
 
 class Node {
  public:
-  NodeKind kind;  // Node kind
-  Node *next;     // Next node
-  Type *ty;       // Type, e.g. int or pointer to int
-  Token *tok;     // Representative token
+  NodeKind kind = NodeKind::ND_NUM;  // Node kind
+  Node *next = nullptr;              // Next node
+  Type *ty = nullptr;                // Type, e.g. int or pointer to int
+  Token *tok = nullptr;              // Representative token
 
-  Node *lhs;  // Left-hand side
-  Node *rhs;  // Right-hand side
+  Node *lhs = nullptr;  // Left-hand side
+  Node *rhs = nullptr;  // Right-hand side
 
   // "if" or "for" statement
-  Node *cond;
-  Node *then;
-  Node *els;
-  Node *init;
-  Node *inc;
+  Node *cond = nullptr;
+  Node *then = nullptr;
+  Node *els = nullptr;
+  Node *init = nullptr;
+  Node *inc = nullptr;
 
   // Block
-  Node *body;
+  Node *body = nullptr;
 
-  Obj *var;  // Used if kind == ND_VAR
-  int val;   // Used if kind == ND_NUM
+  Obj *var = nullptr;  // Used if kind == ND_VAR
+  int val = 0;         // Used if kind == ND_NUM
 
-  Node();
-  Node(NodeKind kind, Token *tok);
-  Node(NodeKind kind, Node *lhs, Node *rhs, Token *tok);
-  Node(NodeKind kind, Node *expr, Token *tok);
-  Node(int val, Token *tok);
-  Node(Obj *var, Token *tok);
+  Node() = default;
 };
 
 class Type {
  public:
   static Type *ty_int;
 
+  static Type *pointer_to(Type *base);
+
   TypeKind kind;
+
+  // Pointer
   Type *base;
+
+  // Declaration
+  Token *name;
 
   Type(TypeKind kind);
 

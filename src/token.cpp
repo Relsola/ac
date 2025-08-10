@@ -1,6 +1,5 @@
 #include "core.h"
 
-Token::Token(){};
 Token::Token(TokenKind kind, char *start, char *end)
     : kind(kind), loc(start), len(end - start){};
 
@@ -18,4 +17,14 @@ int Token::get_number() {
   if (this->kind != TokenKind::TK_NUM) error_tok(this, "expected a number");
 
   return this->val;
+}
+
+bool Token::consume(Token **rest, char *str) {
+  if (this->equal(str)) {
+    *rest = this->next;
+    return true;
+  }
+
+  *rest = this;
+  return false;
 }

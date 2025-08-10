@@ -6,7 +6,7 @@ Type::Type(TypeKind kind) : kind(kind) {}
 
 bool Type::is_integer() { return this->kind == TypeKind::TY_INT; }
 
-Type *pointer_to(Type *base) {
+Type *Type::pointer_to(Type *base) {
   Type *ty = new Type(TypeKind::TY_PTR);
   ty->base = base;
   return ty;
@@ -38,18 +38,20 @@ void add_type(Node *node) {
     case NodeKind::ND_NE:
     case NodeKind::ND_LT:
     case NodeKind::ND_LE:
-    case NodeKind::ND_VAR:
     case NodeKind::ND_NUM:
       node->ty = Type::ty_int;
       return;
+    case NodeKind::ND_VAR:
+      node->ty = node->var->ty;
+      return;
     case NodeKind::ND_ADDR:
-      node->ty = pointer_to(node->lhs->ty);
+      node->ty = Type::pointer_to(node->lhs->ty);
       return;
     case NodeKind::ND_DEREF:
-      if (node->lhs->ty->kind == TypeKind::TY_PTR)
-        node->ty = node->lhs->ty->base;
-      else
-        node->ty = Type::ty_int;
+      if (node->lhs->ty->kind != TypeKind::TY_PTR)
+        error_tok(node->tok, "invalid pointer dereference");
+
+      node->ty = node->lhs->ty->base;
       return;
   }
 }
