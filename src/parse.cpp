@@ -387,8 +387,30 @@ static Node *unary(Token **rest, Token *tok) {
   return primary(rest, tok);
 }
 
-// primary = "(" expr ")" | ident | num
-// args = "(" ")"
+// funcall = ident "(" (assign ("," assign)*)? ")"
+static Node *funcall(Token **rest, Token *tok) {
+  Token *start = tok;
+  tok = tok->next->next;
+
+  Node head = {next : nullptr};
+  Node *cur = &head;
+
+  while (!tok->equal(")")) {
+    if (cur != &head) {
+      tok = tok->skip(",");
+    }
+    cur = cur->next = assign(&tok, tok);
+  }
+
+  *rest = tok->skip(")");
+
+  Node *node = new_node(NodeKind::ND_FUNCALL, start);
+  node->funcname = strndup(start->loc, start->len);
+  node->args = head.next;
+  return node;
+}
+
+// primary = "(" expr ")" | ident func-args? | num
 static Node *primary(Token **rest, Token *tok) {
   if (tok->equal("(")) {
     Node *node = expr(&tok, tok->next);
@@ -398,10 +420,7 @@ static Node *primary(Token **rest, Token *tok) {
 
   if (tok->kind == TokenKind::TK_IDENT) {
     if (tok->next->equal("(")) {
-      Node *node = new_node(NodeKind::ND_FUNCALL, tok);
-      node->funcname = strndup(tok->loc, tok->len);
-      *rest = tok->next->next->skip(")");
-      return node;
+      return funcall(rest, tok);
     }
 
     // Variable

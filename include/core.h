@@ -6,6 +6,8 @@
 #include <stdlib.h>
 #include <string.h>
 
+#include <string>
+
 class Type;
 class Node;
 
@@ -107,6 +109,7 @@ class Node {
 
   // Function call
   char *funcname = nullptr;
+  Node *args = nullptr;
 
   Obj *var = nullptr;  // Used if kind == ND_VAR
   int val = 0;         // Used if kind == ND_NUM
