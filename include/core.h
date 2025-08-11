@@ -34,6 +34,7 @@ enum class NodeKind : int {
   ND_IF,         // "if"
   ND_FOR,        // "for" or "while"
   ND_BLOCK,      // { ... }
+  ND_FUNCALL,    // Function call
   ND_EXPR_STMT,  // Expression statement
   ND_VAR,        // Variable
   ND_NUM,        // Integer
@@ -103,6 +104,9 @@ class Node {
 
   // Block
   Node *body = nullptr;
+
+  // Function call
+  char *funcname = nullptr;
 
   Obj *var = nullptr;  // Used if kind == ND_VAR
   int val = 0;         // Used if kind == ND_NUM

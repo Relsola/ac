@@ -39,6 +39,7 @@ void add_type(Node *node) {
     case NodeKind::ND_LT:
     case NodeKind::ND_LE:
     case NodeKind::ND_NUM:
+    case NodeKind::ND_FUNCALL:
       node->ty = Type::ty_int;
       return;
     case NodeKind::ND_VAR:
