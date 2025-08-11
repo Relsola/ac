@@ -45,6 +45,7 @@ enum class NodeKind : int {
 enum class TypeKind : int {
   TY_INT,
   TY_PTR,
+  TY_FUNC,
 };
 
 class Token {
@@ -80,6 +81,8 @@ class Obj {
 
 class Function {
  public:
+  Function *next = nullptr;
+  char *name = nullptr;
   Node *body = nullptr;
   Obj *locals = nullptr;
   int stack_size = 0;
@@ -123,13 +126,18 @@ class Type {
 
   static Type *pointer_to(Type *base);
 
+  static Type *func_type(Type *return_ty);
+
   TypeKind kind;
 
   // Pointer
-  Type *base;
+  Type *base = nullptr;
 
   // Declaration
-  Token *name;
+  Token *name = nullptr;
+
+  // Function type
+  Type *return_ty = nullptr;
 
   Type(TypeKind kind);
 

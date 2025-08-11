@@ -12,6 +12,12 @@ Type *Type::pointer_to(Type *base) {
   return ty;
 }
 
+Type *Type::func_type(Type *return_ty) {
+  Type *ty = new Type(TypeKind::TY_FUNC);
+  ty->return_ty = return_ty;
+  return ty;
+}
+
 void add_type(Node *node) {
   if (!node || node->ty) return;
 

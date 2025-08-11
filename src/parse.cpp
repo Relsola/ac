@@ -4,6 +4,8 @@
 // accumulated to this list.
 Obj *locals;
 
+static Type *declspec(Token **rest, Token *tok);
+static Type *declarator(Token **rest, Token *tok, Type *ty);
 static Node *declaration(Token **rest, Token *tok);
 static Node *compound_stmt(Token **rest, Token *tok);
 static Node *stmt(Token **rest, Token *tok);
@@ -80,6 +82,16 @@ static Type *declspec(Token **rest, Token *tok) {
   return Type::ty_int;
 }
 
+// type-suffix = ("(" func-params)?
+static Type *type_suffix(Token **rest, Token *tok, Type *ty) {
+  if (tok->equal("(")) {
+    *rest = tok->next->skip(")");
+    return Type::func_type(ty);
+  }
+  *rest = tok;
+  return ty;
+}
+
 // declarator = "*"* ident
 static Type *declarator(Token **rest, Token *tok, Type *ty) {
   while (tok->consume(&tok, "*")) ty = Type::pointer_to(ty);
@@ -87,8 +99,8 @@ static Type *declarator(Token **rest, Token *tok, Type *ty) {
   if (tok->kind != TokenKind::TK_IDENT)
     error_tok(tok, "expected a variable name");
 
+  ty = type_suffix(rest, tok->next, ty);
   ty->name = tok;
-  *rest = tok->next;
   return ty;
 }
 
@@ -439,12 +451,28 @@ static Node *primary(Token **rest, Token *tok) {
   error_tok(tok, "expected an expression");
 }
 
+static Function *function(Token **rest, Token *tok) {
+  Type *ty = declspec(&tok, tok);
+  ty = declarator(&tok, tok, ty);
+
+  locals = nullptr;
+
+  Function *fn = new Function();
+  fn->name = get_ident(ty->name);
+
+  tok = tok->skip("{");
+  fn->body = compound_stmt(rest, tok);
+  fn->locals = locals;
+
+  return fn;
+}
+
 // program = stmt*
 Function *parse(Token *tok) {
-  tok = tok->skip("{");
+  Function head = {next : nullptr};
+  Function *cur = &head;
 
-  Function *prog = new Function();
-  prog->body = compound_stmt(&tok, tok);
-  prog->locals = locals;
-  return prog;
+  while (tok->kind != TokenKind::TK_EOF) cur = cur->next = function(&tok, tok);
+
+  return head.next;
 }
