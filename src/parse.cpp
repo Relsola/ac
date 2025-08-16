@@ -118,14 +118,15 @@ static Type *func_params(Token **rest, Token *tok, Type *ty) {
 }
 
 // type-suffix = "(" func-params
-//             | "[" num "]"
+//             | "[" num "]" type-suffix
 //             | ε
 static Type *type_suffix(Token **rest, Token *tok, Type *ty) {
   if (tok->equal("(")) return func_params(rest, tok->next, ty);
 
   if (tok->equal("[")) {
     int len = tok->next->get_number();
-    *rest = tok->next->next->skip("]");
+    tok = tok->next->next->skip("]");
+    ty = type_suffix(rest, tok, ty);
     return Type::array_of(ty, len);
   }
 
