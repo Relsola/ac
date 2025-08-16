@@ -83,6 +83,8 @@ class Function {
  public:
   Function *next = nullptr;
   char *name = nullptr;
+  Obj *params = nullptr;
+
   Node *body = nullptr;
   Obj *locals = nullptr;
   int stack_size = 0;
@@ -128,6 +130,8 @@ class Type {
 
   static Type *func_type(Type *return_ty);
 
+  static Type *copy_type(Type *ty);
+
   TypeKind kind;
 
   // Pointer
@@ -138,6 +142,10 @@ class Type {
 
   // Function type
   Type *return_ty = nullptr;
+  Type *params = nullptr;
+  Type *next = nullptr;
+
+  Type() = default;
 
   Type(TypeKind kind);
 

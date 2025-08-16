@@ -176,11 +176,11 @@ static void gen_stmt(Node *node) {
 static void assign_lvar_offsets(Function *prog) {
   for (Function *fn = prog; fn; fn = fn->next) {
     int offset = 0;
-    for (Obj *var = prog->locals; var; var = var->next) {
+    for (Obj *var = fn->locals; var; var = var->next) {
       offset += 8;
       var->offset = -offset;
     }
-    prog->stack_size = align_to(offset, 16);
+    fn->stack_size = align_to(offset, 16);
   }
 }
 
@@ -196,6 +196,11 @@ void codegen(Function *prog) {
     printf("  push %%rbp\n");
     printf("  mov %%rsp, %%rbp\n");
     printf("  sub $%d, %%rsp\n", fn->stack_size);
+
+    // Save passed-by-register arguments to the stack
+    int i = 0;
+    for (Obj *var = fn->params; var; var = var->next)
+      printf("  mov %s, %d(%%rbp)\n", argreg[i++], var->offset);
 
     // Emit code
     gen_stmt(fn->body);

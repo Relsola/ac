@@ -6,6 +6,12 @@ Type::Type(TypeKind kind) : kind(kind) {}
 
 bool Type::is_integer() { return this->kind == TypeKind::TY_INT; }
 
+Type *Type::copy_type(Type *ty) {
+  Type *ret = new Type();
+  *ret = *ty;
+  return ret;
+}
+
 Type *Type::pointer_to(Type *base) {
   Type *ty = new Type(TypeKind::TY_PTR);
   ty->base = base;
@@ -30,6 +36,7 @@ void add_type(Node *node) {
   add_type(node->inc);
 
   for (Node *n = node->body; n; n = n->next) add_type(n);
+  for (Node *n = node->args; n; n = n->next) add_type(n);
 
   switch (node->kind) {
     case NodeKind::ND_ADD:

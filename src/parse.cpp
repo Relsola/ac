@@ -82,12 +82,30 @@ static Type *declspec(Token **rest, Token *tok) {
   return Type::ty_int;
 }
 
-// type-suffix = ("(" func-params)?
+// type-suffix = ("(" func-params? ")")?
+// func-params = param ("," param)*
+// param       = declspec declarator
 static Type *type_suffix(Token **rest, Token *tok, Type *ty) {
   if (tok->equal("(")) {
-    *rest = tok->next->skip(")");
-    return Type::func_type(ty);
+    tok = tok->next;
+
+    Type head;
+    Type *cur = &head;
+
+    while (!tok->equal(")")) {
+      if (cur != &head) tok = tok->skip(",");
+
+      Type *basety = declspec(&tok, tok);
+      Type *ty = declarator(&tok, tok, basety);
+      cur = cur->next = Type::copy_type(ty);
+    }
+
+    ty = Type::func_type(ty);
+    ty->params = head.next;
+    *rest = tok->next;
+    return ty;
   }
+
   *rest = tok;
   return ty;
 }
@@ -104,8 +122,7 @@ static Type *declarator(Token **rest, Token *tok, Type *ty) {
   return ty;
 }
 
-// declaration = declspec (declarator ("=" expr)? ("," declarator ("="
-// expr)?)*)? ";"
+// declaration = declspec (declarator ("=" expr)? ("," declarator ("=" expr)?)*)? ";"
 static Node *declaration(Token **rest, Token *tok) {
   Type *basety = declspec(&tok, tok);
 
@@ -404,7 +421,7 @@ static Node *funcall(Token **rest, Token *tok) {
   Token *start = tok;
   tok = tok->next->next;
 
-  Node head = {next : nullptr};
+  Node head = {};
   Node *cur = &head;
 
   while (!tok->equal(")")) {
@@ -451,6 +468,13 @@ static Node *primary(Token **rest, Token *tok) {
   error_tok(tok, "expected an expression");
 }
 
+static void create_param_lvars(Type *param) {
+  if (param) {
+    create_param_lvars(param->next);
+    new_lvar(get_ident(param->name), param);
+  }
+}
+
 static Function *function(Token **rest, Token *tok) {
   Type *ty = declspec(&tok, tok);
   ty = declarator(&tok, tok, ty);
@@ -459,6 +483,8 @@ static Function *function(Token **rest, Token *tok) {
 
   Function *fn = new Function();
   fn->name = get_ident(ty->name);
+  create_param_lvars(ty->params);
+  fn->params = locals;
 
   tok = tok->skip("{");
   fn->body = compound_stmt(rest, tok);
@@ -469,7 +495,7 @@ static Function *function(Token **rest, Token *tok) {
 
 // program = stmt*
 Function *parse(Token *tok) {
-  Function head = {next : nullptr};
+  Function head = {};
   Function *cur = &head;
 
   while (tok->kind != TokenKind::TK_EOF) cur = cur->next = function(&tok, tok);
