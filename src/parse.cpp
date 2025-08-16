@@ -472,12 +472,18 @@ static Node *funcall(Token **rest, Token *tok) {
   return node;
 }
 
-// primary = "(" expr ")" | ident func-args? | num
+// primary = "(" expr ")" | "sizeof" unary | ident func-args? | num
 static Node *primary(Token **rest, Token *tok) {
   if (tok->equal("(")) {
     Node *node = expr(&tok, tok->next);
     *rest = tok->skip(")");
     return node;
+  }
+
+  if (tok->equal("sizeof")) {
+    Node *node = unary(rest, tok->next);
+    add_type(node);
+    return new_num(node->ty->size, tok);
   }
 
   if (tok->kind == TokenKind::TK_IDENT) {

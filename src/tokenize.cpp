@@ -32,9 +32,7 @@ void error_tok(Token *tok, char *fmt, ...) {
   verror_at(tok->loc, fmt, ap);
 }
 
-static bool startswith(char *p, char *q) {
-  return strncmp(p, q, strlen(q)) == 0;
-}
+static bool startswith(char *p, char *q) { return strncmp(p, q, strlen(q)) == 0; }
 
 // Returns true if c is valid as the first character of an identifier.
 static bool is_ident1(char c) {
@@ -46,15 +44,22 @@ static bool is_ident2(char c) { return is_ident1(c) || ('0' <= c && c <= '9'); }
 
 // Read a punctuator token from p and returns its length.
 static int read_punct(char *p) {
-  if (startswith(p, "==") || startswith(p, "!=") || startswith(p, "<=") ||
-      startswith(p, ">="))
+  if (startswith(p, "==") || startswith(p, "!=") || startswith(p, "<=") || startswith(p, ">="))
     return 2;
 
   return ispunct(*p) ? 1 : 0;
 }
 
 static bool is_keyword(Token *tok) {
-  static char *kw[] = {"return", "if", "else", "for", "while", "int"};
+  static char *kw[] = {
+      "return",
+      "if",
+      "else",
+      "for",
+      "while",
+      "int",
+      "sizeof",
+  };
 
   for (int i = 0; i < sizeof(kw) / sizeof(*kw); i++)
     if (tok->equal(kw[i])) return true;
