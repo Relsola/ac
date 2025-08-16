@@ -34,6 +34,7 @@ static Node *equality(Token **rest, Token *tok);
 static Node *relational(Token **rest, Token *tok);
 static Node *add(Token **rest, Token *tok);
 static Node *mul(Token **rest, Token *tok);
+static Node *postfix(Token **rest, Token *tok);
 static Node *unary(Token **rest, Token *tok);
 static Node *primary(Token **rest, Token *tok);
 
@@ -430,7 +431,22 @@ static Node *unary(Token **rest, Token *tok) {
 
   if (tok->equal("*")) return new_unary(NodeKind::ND_DEREF, unary(rest, tok->next), tok);
 
-  return primary(rest, tok);
+  return postfix(rest, tok);
+}
+
+// postfix = primary ("[" expr "]")*
+static Node *postfix(Token **rest, Token *tok) {
+  Node *node = primary(&tok, tok);
+
+  while (tok->equal("[")) {
+    // x[y] is short for *(x+y)
+    Token *start = tok;
+    Node *idx = expr(&tok, tok->next);
+    tok = tok->skip("]");
+    node = new_unary(NodeKind::ND_DEREF, new_add(node, idx, start), start);
+  }
+  *rest = tok;
+  return node;
 }
 
 // funcall = ident "(" (assign ("," assign)*)? ")"
