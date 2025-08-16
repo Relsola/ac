@@ -1,3 +1,13 @@
 Language: Cpp
 BasedOnStyle: Google
+
 ReflowComments: false
+
+ColumnLimit: 100
+
+# 函数参数在同一行或都各自一行  与左括号对齐
+BinPackParameters: true
+BinPackArguments: false
+AllowAllParametersOfDeclarationOnNextLine: false
+AlignAfterOpenBracket: Align
+PenaltyBreakBeforeFirstCallParameter: 10000

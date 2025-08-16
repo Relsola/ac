@@ -46,6 +46,7 @@ enum class TypeKind : int {
   TY_INT,
   TY_PTR,
   TY_FUNC,
+  TY_ARRAY,
 };
 
 class Token {
@@ -58,9 +59,9 @@ class Token {
 
   Token() = default;
 
-  Token(TokenKind kind, char *start, char *end);
+  Token(TokenKind kind, char *start, char *end) : kind(kind), loc(start), len(end - start){};
 
-  bool equal(char *op);
+  bool equal(char *op) { return memcmp(this->loc, op, this->len) == 0 && op[this->len] == '\0'; };
 
   Token *skip(char *s);
 
@@ -132,13 +133,27 @@ class Type {
 
   static Type *copy_type(Type *ty);
 
+  static Type *array_of(Type *base, int size);
+
   TypeKind kind;
 
-  // Pointer
+  int size = 0;  // sizeof() value
+
+  // Pointer-to or array-of type. We intentionally use the same member
+  // to represent pointer/array duality in C.
+  //
+  // In many contexts in which a pointer is expected, we examine this
+  // member instead of "kind" member to determine whether a type is a
+  // pointer or not. That means in many contexts "array of T" is
+  // naturally handled as if it were "pointer to T", as required by
+  // the C spec.
   Type *base = nullptr;
 
   // Declaration
   Token *name = nullptr;
+
+  // Array
+  int array_len = 0;
 
   // Function type
   Type *return_ty = nullptr;
@@ -147,9 +162,11 @@ class Type {
 
   Type() = default;
 
-  Type(TypeKind kind);
+  Type(TypeKind kind) : kind(kind){};
 
-  bool is_integer();
+  Type(TypeKind kind, int size) : kind(kind), size(size){};
+
+  bool is_integer() { return this->kind == TypeKind::TY_INT; };
 };
 
 void add_type(Node *node);

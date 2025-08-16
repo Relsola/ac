@@ -1,10 +1,6 @@
 #include "core.h"
 
-Type *Type::ty_int = new Type(TypeKind::TY_INT);
-
-Type::Type(TypeKind kind) : kind(kind) {}
-
-bool Type::is_integer() { return this->kind == TypeKind::TY_INT; }
+Type *Type::ty_int = new Type(TypeKind::TY_INT, 8);
 
 Type *Type::copy_type(Type *ty) {
   Type *ret = new Type();
@@ -13,7 +9,7 @@ Type *Type::copy_type(Type *ty) {
 }
 
 Type *Type::pointer_to(Type *base) {
-  Type *ty = new Type(TypeKind::TY_PTR);
+  Type *ty = new Type(TypeKind::TY_PTR, 8);
   ty->base = base;
   return ty;
 }
@@ -21,6 +17,13 @@ Type *Type::pointer_to(Type *base) {
 Type *Type::func_type(Type *return_ty) {
   Type *ty = new Type(TypeKind::TY_FUNC);
   ty->return_ty = return_ty;
+  return ty;
+}
+
+Type *Type::array_of(Type *base, int len) {
+  Type *ty = new Type(TypeKind::TY_ARRAY, base->size * len);
+  ty->base = base;
+  ty->array_len = len;
   return ty;
 }
 
@@ -44,7 +47,10 @@ void add_type(Node *node) {
     case NodeKind::ND_MUL:
     case NodeKind::ND_DIV:
     case NodeKind::ND_NEG:
+      node->ty = node->lhs->ty;
+      return;
     case NodeKind::ND_ASSIGN:
+      if (node->lhs->ty->kind == TypeKind::TY_ARRAY) error_tok(node->lhs->tok, "not an lvalue");
       node->ty = node->lhs->ty;
       return;
     case NodeKind::ND_EQ:
@@ -59,11 +65,13 @@ void add_type(Node *node) {
       node->ty = node->var->ty;
       return;
     case NodeKind::ND_ADDR:
-      node->ty = Type::pointer_to(node->lhs->ty);
+      if (node->lhs->ty->kind == TypeKind::TY_ARRAY)
+        node->ty = Type::pointer_to(node->lhs->ty->base);
+      else
+        node->ty = Type::pointer_to(node->lhs->ty);
       return;
     case NodeKind::ND_DEREF:
-      if (node->lhs->ty->kind != TypeKind::TY_PTR)
-        error_tok(node->tok, "invalid pointer dereference");
+      if (!node->lhs->ty->base) error_tok(node->tok, "invalid pointer dereference");
 
       node->ty = node->lhs->ty->base;
       return;

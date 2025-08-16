@@ -1,3 +1,21 @@
+// This file contains a recursive descent parser for C.
+//
+// Most functions in this file are named after the symbols they are
+// supposed to read from an input token list. For example, stmt() is
+// responsible for reading a statement from a token list. The function
+// then construct an AST node representing a statement.
+//
+// Each function conceptually returns two values, an AST node and
+// remaining part of the input tokens. Since C doesn't support
+// multiple return values, the remaining tokens are returned to the
+// caller via a pointer argument.
+//
+// Input tokens are represented by a linked list. Unlike many recursive
+// descent parsers, we don't have the notion of the "input token stream".
+// Most parsing functions don't change the global state of the parser.
+// So it is very easy to lookahead arbitrary number of tokens in this
+// parser.
+
 #include "core.h"
 
 // All local variable instances created during parsing are
@@ -22,9 +40,7 @@ static Node *primary(Token **rest, Token *tok);
 // Find a local variable by name.
 static Obj *find_var(Token *tok) {
   for (Obj *var = locals; var; var = var->next)
-    if (strlen(var->name) == tok->len &&
-        !strncmp(tok->loc, var->name, tok->len))
-      return var;
+    if (strlen(var->name) == tok->len && !strncmp(tok->loc, var->name, tok->len)) return var;
   return NULL;
 }
 
@@ -71,8 +87,7 @@ Obj *new_lvar(char *name, Type *ty) {
 }
 
 static char *get_ident(Token *tok) {
-  if (tok->kind != TokenKind::TK_IDENT)
-    error_tok(tok, "expected an identifier");
+  if (tok->kind != TokenKind::TK_IDENT) error_tok(tok, "expected an identifier");
   return strndup(tok->loc, tok->len);
 }
 
@@ -82,28 +97,36 @@ static Type *declspec(Token **rest, Token *tok) {
   return Type::ty_int;
 }
 
-// type-suffix = ("(" func-params? ")")?
-// func-params = param ("," param)*
+// func-params = (param ("," param)*)? ")"
 // param       = declspec declarator
+static Type *func_params(Token **rest, Token *tok, Type *ty) {
+  Type head;
+  Type *cur = &head;
+
+  while (!tok->equal(")")) {
+    if (cur != &head) tok = tok->skip(",");
+
+    Type *basety = declspec(&tok, tok);
+    Type *ty = declarator(&tok, tok, basety);
+    cur = cur->next = Type::copy_type(ty);
+  }
+
+  ty = Type::func_type(ty);
+  ty->params = head.next;
+  *rest = tok->next;
+  return ty;
+}
+
+// type-suffix = "(" func-params
+//             | "[" num "]"
+//             | ε
 static Type *type_suffix(Token **rest, Token *tok, Type *ty) {
-  if (tok->equal("(")) {
-    tok = tok->next;
+  if (tok->equal("(")) return func_params(rest, tok->next, ty);
 
-    Type head;
-    Type *cur = &head;
-
-    while (!tok->equal(")")) {
-      if (cur != &head) tok = tok->skip(",");
-
-      Type *basety = declspec(&tok, tok);
-      Type *ty = declarator(&tok, tok, basety);
-      cur = cur->next = Type::copy_type(ty);
-    }
-
-    ty = Type::func_type(ty);
-    ty->params = head.next;
-    *rest = tok->next;
-    return ty;
+  if (tok->equal("[")) {
+    int len = tok->next->get_number();
+    *rest = tok->next->next->skip("]");
+    return Type::array_of(ty, len);
   }
 
   *rest = tok;
@@ -114,8 +137,7 @@ static Type *type_suffix(Token **rest, Token *tok, Type *ty) {
 static Type *declarator(Token **rest, Token *tok, Type *ty) {
   while (tok->consume(&tok, "*")) ty = Type::pointer_to(ty);
 
-  if (tok->kind != TokenKind::TK_IDENT)
-    error_tok(tok, "expected a variable name");
+  if (tok->kind != TokenKind::TK_IDENT) error_tok(tok, "expected a variable name");
 
   ty = type_suffix(rest, tok->next, ty);
   ty->name = tok;
@@ -243,8 +265,7 @@ static Node *expr(Token **rest, Token *tok) { return assign(rest, tok); }
 // assign = equality ("=" assign)?
 static Node *assign(Token **rest, Token *tok) {
   Node *node = equality(&tok, tok);
-  if (tok->equal("="))
-    node = new_binary(NodeKind::ND_ASSIGN, node, assign(&tok, tok->next), tok);
+  if (tok->equal("=")) node = new_binary(NodeKind::ND_ASSIGN, node, assign(&tok, tok->next), tok);
   *rest = tok;
   return node;
 }
@@ -257,14 +278,12 @@ static Node *equality(Token **rest, Token *tok) {
     Token *start = tok;
 
     if (tok->equal("==")) {
-      node =
-          new_binary(NodeKind::ND_EQ, node, relational(&tok, tok->next), start);
+      node = new_binary(NodeKind::ND_EQ, node, relational(&tok, tok->next), start);
       continue;
     }
 
     if (tok->equal("!=")) {
-      node =
-          new_binary(NodeKind::ND_NE, node, relational(&tok, tok->next), start);
+      node = new_binary(NodeKind::ND_NE, node, relational(&tok, tok->next), start);
       continue;
     }
 
@@ -323,7 +342,7 @@ static Node *new_add(Node *lhs, Node *rhs, Token *tok) {
   }
 
   // ptr + num
-  rhs = new_binary(NodeKind::ND_MUL, rhs, new_num(8, tok), tok);
+  rhs = new_binary(NodeKind::ND_MUL, rhs, new_num(lhs->ty->base->size, tok), tok);
   return new_binary(NodeKind::ND_ADD, lhs, rhs, tok);
 }
 
@@ -338,7 +357,7 @@ static Node *new_sub(Node *lhs, Node *rhs, Token *tok) {
 
   // ptr - num
   if (lhs->ty->base && rhs->ty->is_integer()) {
-    rhs = new_binary(NodeKind::ND_MUL, rhs, new_num(8, tok), tok);
+    rhs = new_binary(NodeKind::ND_MUL, rhs, new_num(lhs->ty->base->size, tok), tok);
     add_type(rhs);
     Node *node = new_binary(NodeKind::ND_SUB, lhs, rhs, tok);
     node->ty = lhs->ty;
@@ -349,7 +368,7 @@ static Node *new_sub(Node *lhs, Node *rhs, Token *tok) {
   if (lhs->ty->base && rhs->ty->base) {
     Node *node = new_binary(NodeKind::ND_SUB, lhs, rhs, tok);
     node->ty = Type::ty_int;
-    return new_binary(NodeKind::ND_DIV, node, new_num(8, tok), tok);
+    return new_binary(NodeKind::ND_DIV, node, new_num(lhs->ty->base->size, tok), tok);
   }
 
   error_tok(tok, "invalid operands");
@@ -404,14 +423,11 @@ static Node *mul(Token **rest, Token *tok) {
 static Node *unary(Token **rest, Token *tok) {
   if (tok->equal("+")) return unary(rest, tok->next);
 
-  if (tok->equal("-"))
-    return new_unary(NodeKind::ND_NEG, unary(rest, tok->next), tok);
+  if (tok->equal("-")) return new_unary(NodeKind::ND_NEG, unary(rest, tok->next), tok);
 
-  if (tok->equal("&"))
-    return new_unary(NodeKind::ND_ADDR, unary(rest, tok->next), tok);
+  if (tok->equal("&")) return new_unary(NodeKind::ND_ADDR, unary(rest, tok->next), tok);
 
-  if (tok->equal("*"))
-    return new_unary(NodeKind::ND_DEREF, unary(rest, tok->next), tok);
+  if (tok->equal("*")) return new_unary(NodeKind::ND_DEREF, unary(rest, tok->next), tok);
 
   return primary(rest, tok);
 }
