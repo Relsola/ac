@@ -102,8 +102,13 @@ static char *get_ident(Token *tok) {
   return strndup(tok->loc, tok->len);
 }
 
-// declspec = "int"
+// declspec = "char" | "int"
 static Type *declspec(Token **rest, Token *tok) {
+  if (tok->equal("char")) {
+    *rest = tok->next;
+    return Type::ty_char;
+  }
+
   *rest = tok->skip("int");
   return Type::ty_int;
 }
@@ -184,6 +189,9 @@ static Node *declaration(Token **rest, Token *tok) {
   return node;
 }
 
+// Returns true if a given token represents a type.
+static bool is_typename(Token *tok) { return tok->equal("char") || tok->equal("int"); }
+
 // stmt = "return" expr ";"
 //      | "if" "(" expr ")" stmt ("else" stmt)?
 //      | "for" "(" expr-stmt expr? ";" expr? ")" stmt
@@ -246,7 +254,7 @@ static Node *compound_stmt(Token **rest, Token *tok) {
   Node head = {};
   Node *cur = &head;
   while (!tok->equal("}")) {
-    if (tok->equal("int"))
+    if (is_typename(tok))
       cur = cur->next = declaration(&tok, tok);
     else
       cur = cur->next = stmt(&tok, tok);

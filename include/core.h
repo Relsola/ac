@@ -43,6 +43,7 @@ enum class NodeKind : int {
 };
 
 enum class TypeKind : int {
+  TY_CHAR,
   TY_INT,
   TY_PTR,
   TY_FUNC,
@@ -128,6 +129,7 @@ class Node {
 class Type {
  public:
   static Type *ty_int;
+  static Type *ty_char;
 
   static Type *pointer_to(Type *base);
 
@@ -168,7 +170,7 @@ class Type {
 
   Type(TypeKind kind, int size) : kind(kind), size(size){};
 
-  bool is_integer() { return this->kind == TypeKind::TY_INT; };
+  bool is_integer() { return this->kind == TypeKind::TY_INT || this->kind == TypeKind::TY_CHAR; };
 };
 
 void add_type(Node *node);
