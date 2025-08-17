@@ -11,6 +11,11 @@
 class Type;
 class Node;
 
+//
+// strings.c
+//
+char *format(char *fmt, ...);
+
 enum class TokenKind : int {
   TK_IDENT,    // Identifiers
   TK_PUNCT,    // Punctuators
