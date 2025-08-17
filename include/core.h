@@ -70,27 +70,29 @@ class Token {
   bool consume(Token **rest, char *str);
 };
 
+// Variable or function
 class Obj {
  public:
   Obj *next = nullptr;
-  char *name = nullptr;  // Variable name
-  Type *ty = nullptr;    // Type
-  int offset = 0;        // Offset from RBP
+  char *name = nullptr;   // Variable name
+  Type *ty = nullptr;     // Type
+  bool is_local = false;  // local or global/function
 
-  Obj() = default;
-};
+  // Local variable
+  int offset = 0;
 
-class Function {
- public:
-  Function *next = nullptr;
-  char *name = nullptr;
+  // Global variable or function
+  bool is_function = false;
+
+  // Function
   Obj *params = nullptr;
-
   Node *body = nullptr;
   Obj *locals = nullptr;
   int stack_size = 0;
 
-  Function() = default;
+  Obj() = default;
+
+  Obj(char *name, Type *ty) : name(name), ty(ty){};
 };
 
 class Node {
@@ -179,6 +181,6 @@ void error_tok(Token *tok, char *fmt, ...);
 
 Token *tokenize(char *p);
 
-Function *parse(Token *tok);
+Obj *parse(Token *tok);
 
-void codegen(Function *prog);
+void codegen(Obj *prog);

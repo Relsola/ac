@@ -20,7 +20,8 @@
 
 // All local variable instances created during parsing are
 // accumulated to this list.
-Obj *locals;
+static Obj *locals;
+static Obj *globals;
 
 static Type *declspec(Token **rest, Token *tok);
 static Type *declarator(Token **rest, Token *tok, Type *ty);
@@ -45,45 +46,50 @@ static Obj *find_var(Token *tok) {
   return NULL;
 }
 
-Node *new_node(NodeKind kind, Token *tok) {
+static Node *new_node(NodeKind kind, Token *tok) {
   Node *node = new Node();
   node->kind = kind;
   node->tok = tok;
   return node;
 }
 
-Node *new_binary(NodeKind kind, Node *lhs, Node *rhs, Token *tok) {
+static Node *new_binary(NodeKind kind, Node *lhs, Node *rhs, Token *tok) {
   Node *node = new_node(kind, tok);
   node->lhs = lhs;
   node->rhs = rhs;
   return node;
 }
 
-Node *new_unary(NodeKind kind, Node *expr, Token *tok) {
+static Node *new_unary(NodeKind kind, Node *expr, Token *tok) {
   Node *node = new_node(kind, tok);
   node->lhs = expr;
   return node;
 }
 
-Node *new_num(int val, Token *tok) {
+static Node *new_num(int val, Token *tok) {
   Node *node = new_node(NodeKind::ND_NUM, tok);
   node->val = val;
   return node;
 }
 
-Node *new_var_node(Obj *var, Token *tok) {
+static Node *new_var_node(Obj *var, Token *tok) {
   Node *node = new_node(NodeKind::ND_VAR, tok);
   node->var = var;
   return node;
 }
 
-Obj *new_lvar(char *name, Type *ty) {
-  Obj *var = new Obj;
-
-  var->name = name;
-  var->ty = ty;
+static Obj *new_lvar(char *name, Type *ty) {
+  Obj *var = new Obj(name, ty);
+  var->is_local = true;
   var->next = locals;
   locals = var;
+  return var;
+}
+
+static Obj *new_gvar(char *name, Type *ty) {
+  Obj *var = new Obj(name, ty);
+  var->next = globals;
+  globals = var;
   return var;
 }
 
@@ -514,30 +520,31 @@ static void create_param_lvars(Type *param) {
   }
 }
 
-static Function *function(Token **rest, Token *tok) {
-  Type *ty = declspec(&tok, tok);
-  ty = declarator(&tok, tok, ty);
+static Token *function(Token *tok, Type *basety) {
+  Type *ty = declarator(&tok, tok, basety);
+
+  Obj *fn = new_gvar(get_ident(ty->name), ty);
+  fn->is_function = true;
 
   locals = nullptr;
-
-  Function *fn = new Function();
-  fn->name = get_ident(ty->name);
   create_param_lvars(ty->params);
   fn->params = locals;
 
   tok = tok->skip("{");
-  fn->body = compound_stmt(rest, tok);
+  fn->body = compound_stmt(&tok, tok);
   fn->locals = locals;
 
-  return fn;
+  return tok;
 }
 
 // program = stmt*
-Function *parse(Token *tok) {
-  Function head = {};
-  Function *cur = &head;
+Obj *parse(Token *tok) {
+  globals = nullptr;
 
-  while (tok->kind != TokenKind::TK_EOF) cur = cur->next = function(&tok, tok);
+  while (tok->kind != TokenKind::TK_EOF) {
+    Type *basety = declspec(&tok, tok);
+    tok = function(tok, basety);
+  }
 
-  return head.next;
+  return globals;
 }
