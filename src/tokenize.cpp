@@ -67,6 +67,17 @@ static bool is_keyword(Token *tok) {
   return false;
 }
 
+static Token *read_string_literal(char *start) {
+  char *p = start + 1;
+  for (; *p != '"'; p++)
+    if (*p == '\n' || *p == '\0') error_at(start, "unclosed string literal");
+
+  Token *tok = new Token(TokenKind::TK_STR, start, p + 1);
+  tok->ty = Type::array_of(Type::ty_char, p - start);
+  tok->str = strndup(start + 1, p - start - 1);
+  return tok;
+}
+
 static void convert_keywords(Token *tok) {
   for (Token *t = tok; t->kind != TokenKind::TK_EOF; t = t->next)
     if (is_keyword(t)) t->kind = TokenKind::TK_KEYWORD;
@@ -90,6 +101,13 @@ Token *tokenize(char *p) {
       char *q = p;
       cur->val = strtoul(p, &p, 10);
       cur->len = p - q;
+      continue;
+    }
+
+    // String literal
+    if (*p == '"') {
+      cur = cur->next = read_string_literal(p);
+      p += cur->len;
       continue;
     }
 

@@ -15,6 +15,7 @@ enum class TokenKind : int {
   TK_IDENT,    // Identifiers
   TK_PUNCT,    // Punctuators
   TK_KEYWORD,  // Keywords
+  TK_STR,      // String literals
   TK_NUM,      // Numeric literals
   TK_EOF,      // End-of-file markers
 };
@@ -57,6 +58,8 @@ class Token {
   int val = 0;                         // If kind is TK_NUM, its value
   char *loc = nullptr;                 // Token location
   int len = 0;                         // Token length
+  Type *ty = nullptr;                  // Used if TK_STR
+  char *str = nullptr;                 // String literal contents including terminating '\0'
 
   Token() = default;
 
@@ -84,6 +87,9 @@ class Obj {
 
   // Global variable or function
   bool is_function = false;
+
+  // Global variable
+  char *init_data = nullptr;
 
   // Function
   Obj *params = nullptr;
