@@ -15,7 +15,7 @@ assert() {
   expected="$1"
   input="$2"
 
-	echo "$input" | ./build/debug/bin/ac - > tmp.s || exit
+	echo "$input" | ./build/debug/bin/ac -o tmp.s - || exit
 
   gcc -static -o tmp tmp.s tmp2.o
   ./tmp

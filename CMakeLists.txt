@@ -10,6 +10,7 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 # 设置编译选项
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall -Wextra")
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -w")
 set(CMAKE_CXX_FLAGS_DEBUG "-g -O0")
 set(CMAKE_CXX_FLAGS_RELEASE "-O3 -DNDEBUG")
 
@@ -37,3 +38,22 @@ file(GLOB_RECURSE SOURCES "src/*.cpp" "include/*.h")
 
 # 创建可执行文件
 add_executable(${PROJECT_NAME} ${SOURCES})
+
+
+add_custom_target(test
+    COMMAND bash ${CMAKE_SOURCE_DIR}/test.sh
+    WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
+    COMMENT "Running test"
+)
+
+add_custom_target(test-driver
+    COMMAND bash ${CMAKE_SOURCE_DIR}/test-driver.sh
+    WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
+    COMMENT "Running test-driver"
+)
+
+add_custom_target(clear
+    COMMAND rm -f tmp tmp2.o tmp.s
+    WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
+    COMMENT "Remove temporary files"
+)

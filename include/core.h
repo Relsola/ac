@@ -198,4 +198,4 @@ Token *tokenize_file(char *filename);
 
 Obj *parse(Token *tok);
 
-void codegen(Obj *prog);
+void codegen(Obj *prog, FILE *out);
