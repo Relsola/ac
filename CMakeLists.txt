@@ -39,21 +39,4 @@ file(GLOB_RECURSE SOURCES "src/*.cpp" "include/*.h")
 # 创建可执行文件
 add_executable(${PROJECT_NAME} ${SOURCES})
 
-
-add_custom_target(test
-    COMMAND bash ${CMAKE_SOURCE_DIR}/test.sh
-    WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
-    COMMENT "Running test"
-)
-
-add_custom_target(test-driver
-    COMMAND bash ${CMAKE_SOURCE_DIR}/test-driver.sh
-    WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
-    COMMENT "Running test-driver"
-)
-
-add_custom_target(clear
-    COMMAND rm -f tmp tmp2.o tmp.s
-    WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
-    COMMENT "Remove temporary files"
-)
+add_subdirectory(test)
