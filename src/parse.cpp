@@ -18,10 +18,25 @@
 
 #include "core.h"
 
+// Scope for local or global variables.
+struct VarScope {
+  VarScope *next = nullptr;
+  char *name = nullptr;
+  Obj *var = nullptr;
+};
+
+// Represents a block scope.
+struct Scope {
+  Scope *next = nullptr;
+  VarScope *vars = nullptr;
+};
+
 // All local variable instances created during parsing are
 // accumulated to this list.
 static Obj *locals;
 static Obj *globals;
+
+static Scope *scope = new Scope();
 
 static Type *declspec(Token **rest, Token *tok);
 static Type *declarator(Token **rest, Token *tok, Type *ty);
@@ -39,15 +54,21 @@ static Node *postfix(Token **rest, Token *tok);
 static Node *unary(Token **rest, Token *tok);
 static Node *primary(Token **rest, Token *tok);
 
-// Find a local variable by name.
+static void enter_scope() {
+  Scope *sc = new Scope();
+  sc->next = scope;
+  scope = sc;
+}
+
+static void leave_scope() { scope = scope->next; }
+
+// Find a variable by name.
 static Obj *find_var(Token *tok) {
-  for (Obj *var = locals; var; var = var->next)
-    if (strlen(var->name) == tok->len && !strncmp(tok->loc, var->name, tok->len)) return var;
+  for (Scope *sc = scope; sc; sc = sc->next)
+    for (VarScope *sc2 = sc->vars; sc2; sc2 = sc2->next)
+      if (tok->equal(sc2->name)) return sc2->var;
 
-  for (Obj *var = globals; var; var = var->next)
-    if (strlen(var->name) == tok->len && !strncmp(tok->loc, var->name, tok->len)) return var;
-
-  return NULL;
+  return nullptr;
 }
 
 static Node *new_node(NodeKind kind, Token *tok) {
@@ -82,8 +103,23 @@ static Node *new_var_node(Obj *var, Token *tok) {
   return node;
 }
 
-static Obj *new_lvar(char *name, Type *ty) {
+static VarScope *push_scope(char *name, Obj *var) {
+  VarScope *sc = new VarScope();
+  sc->name = name;
+  sc->var = var;
+  sc->next = scope->vars;
+  scope->vars = sc;
+  return sc;
+}
+
+static Obj *new_var(char *name, Type *ty) {
   Obj *var = new Obj(name, ty);
+  push_scope(name, var);
+  return var;
+}
+
+static Obj *new_lvar(char *name, Type *ty) {
+  Obj *var = new_var(name, ty);
   var->is_local = true;
   var->next = locals;
   locals = var;
@@ -91,7 +127,7 @@ static Obj *new_lvar(char *name, Type *ty) {
 }
 
 static Obj *new_gvar(char *name, Type *ty) {
-  Obj *var = new Obj(name, ty);
+  Obj *var = new_var(name, ty);
   var->next = globals;
   globals = var;
   return var;
@@ -266,6 +302,9 @@ static Node *compound_stmt(Token **rest, Token *tok) {
 
   Node head = {};
   Node *cur = &head;
+
+  enter_scope();
+
   while (!tok->equal("}")) {
     if (is_typename(tok))
       cur = cur->next = declaration(&tok, tok);
@@ -273,6 +312,8 @@ static Node *compound_stmt(Token **rest, Token *tok) {
       cur = cur->next = stmt(&tok, tok);
     add_type(cur);
   }
+
+  leave_scope();
 
   node->body = head.next;
   *rest = tok->next;
@@ -571,12 +612,14 @@ static Token *function(Token *tok, Type *basety) {
   fn->is_function = true;
 
   locals = nullptr;
+  enter_scope();
   create_param_lvars(ty->params);
   fn->params = locals;
 
   tok = tok->skip("{");
   fn->body = compound_stmt(&tok, tok);
   fn->locals = locals;
+  leave_scope();
 
   return tok;
 }
