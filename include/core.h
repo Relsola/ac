@@ -68,6 +68,8 @@ class Token {
   Type *ty = nullptr;                  // Used if TK_STR
   char *str = nullptr;                 // String literal contents including terminating '\0'
 
+  int line_no = 0;  // Line number
+
   Token() = default;
 
   Token(TokenKind kind, char *start, char *end) : kind(kind), loc(start), len(end - start){};
