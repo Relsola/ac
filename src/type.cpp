@@ -76,5 +76,16 @@ void add_type(Node *node) {
 
       node->ty = node->lhs->ty->base;
       return;
+    case NodeKind::ND_STMT_EXPR:
+      if (node->body) {
+        Node *stmt = node->body;
+        while (stmt->next) stmt = stmt->next;
+        if (stmt->kind == NodeKind::ND_EXPR_STMT) {
+          node->ty = stmt->lhs->ty;
+          return;
+        }
+      }
+      error_tok(node->tok, "statement expression returning void is not supported");
+      return;
   }
 }

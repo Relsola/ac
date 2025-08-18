@@ -503,8 +503,21 @@ static Node *funcall(Token **rest, Token *tok) {
   return node;
 }
 
-// primary = "(" expr ")" | "sizeof" unary | ident func-args? | str | num
+// primary = "(" "{" stmt+ "}" ")"
+//         | "(" expr ")"
+//         | "sizeof" unary
+//         | ident func-args?
+//         | str
+//         | num
 static Node *primary(Token **rest, Token *tok) {
+  if (tok->equal("(") && tok->next->equal("{")) {
+    // This is a GNU statement expression.
+    Node *node = new_node(NodeKind::ND_STMT_EXPR, tok);
+    node->body = compound_stmt(&tok, tok->next->next)->body;
+    *rest = tok->skip(")");
+    return node;
+  }
+
   if (tok->equal("(")) {
     Node *node = expr(&tok, tok->next);
     *rest = tok->skip(")");

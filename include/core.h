@@ -44,6 +44,7 @@ enum class NodeKind : int {
   ND_BLOCK,      // { ... }
   ND_FUNCALL,    // Function call
   ND_EXPR_STMT,  // Expression statement
+  ND_STMT_EXPR,  // Statement expression
   ND_VAR,        // Variable
   ND_NUM,        // Integer
 };
@@ -124,7 +125,7 @@ class Node {
   Node *init = nullptr;
   Node *inc = nullptr;
 
-  // Block
+  // Block or statement expression
   Node *body = nullptr;
 
   // Function call
