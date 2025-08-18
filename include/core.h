@@ -1,6 +1,7 @@
 #pragma once
 
 #include <ctype.h>
+#include <errno.h>
 #include <stdarg.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -193,7 +194,7 @@ void error_at(char *loc, char *fmt, ...);
 
 void error_tok(Token *tok, char *fmt, ...);
 
-Token *tokenize(char *p);
+Token *tokenize_file(char *filename);
 
 Obj *parse(Token *tok);
 
