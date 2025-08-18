@@ -11,6 +11,7 @@
 
 class Type;
 class Node;
+class Member;
 
 //
 // strings.c
@@ -38,6 +39,7 @@ enum class NodeKind : int {
   ND_LE,         // <=
   ND_ASSIGN,     // =
   ND_COMMA,      // ,
+  ND_MEMBER,     // . (struct member access)
   ND_ADDR,       // unary &
   ND_DEREF,      // unary *
   ND_RETURN,     // "return"
@@ -57,6 +59,7 @@ enum class TypeKind : int {
   TY_PTR,
   TY_FUNC,
   TY_ARRAY,
+  TY_STRUCT,
 };
 
 class Token {
@@ -132,6 +135,9 @@ class Node {
   // Block or statement expression
   Node *body = nullptr;
 
+  // Struct member access
+  Member *member;
+
   // Function call
   char *funcname = nullptr;
   Node *args = nullptr;
@@ -175,6 +181,9 @@ class Type {
   // Array
   int array_len = 0;
 
+  // Struct
+  Member *members;
+
   // Function type
   Type *return_ty = nullptr;
   Type *params = nullptr;
@@ -187,6 +196,16 @@ class Type {
   Type(TypeKind kind, int size) : kind(kind), size(size){};
 
   bool is_integer() { return this->kind == TypeKind::TY_INT || this->kind == TypeKind::TY_CHAR; };
+};
+
+class Member {
+ public:
+  Member *next = nullptr;
+  Type *ty = nullptr;
+  Token *name = nullptr;
+  int offset = 0;
+
+  Member() = default;
 };
 
 void add_type(Node *node);
