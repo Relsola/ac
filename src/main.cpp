@@ -5,7 +5,7 @@ static char *opt_o;
 static char *input_path;
 
 static void usage(int status) {
-  fprintf(stderr, "chibicc [ -o <path> ] <file>\n");
+  fprintf(stderr, "ac [ -o <path> ] <file>\n");
   exit(status);
 }
 

@@ -19,7 +19,7 @@ rm -f $tmp/out
 check -o
 
 # --help
-./build/debug/bin/ac --help 2>&1 | grep -q chibicc
+./build/debug/bin/ac --help 2>&1 | grep -q ac
 check --help
 
 echo OK
