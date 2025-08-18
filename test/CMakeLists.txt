@@ -1,5 +1,7 @@
 file(GLOB TEST_SRC "${CMAKE_CURRENT_SOURCE_DIR}/*.c")
 
+set(ALL_TEST_TARGETS)
+
 foreach(test_src ${TEST_SRC})
     get_filename_component(test_name ${test_src} NAME_WE)
     set(test_s "${CMAKE_SOURCE_DIR}/test/${test_name}.s")
@@ -23,14 +25,25 @@ foreach(test_src ${TEST_SRC})
         VERBATIM
     )
 
-		add_custom_target(
-		${test_name}_run
-		ALL DEPENDS ${test_exe}
-    COMMAND ${CMAKE_SOURCE_DIR}/test/${test_name}.exe
-    WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
-    COMMENT "Running test"
-)
+		add_custom_target(${test_name}_run
+		    ALL DEPENDS ${test_exe}
+        COMMAND ${CMAKE_SOURCE_DIR}/test/${test_name}.exe
+        WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
+        COMMENT "Running test"
+		)
+
+		list(APPEND ALL_TEST_TARGETS ${test_name}_run)
 endforeach()
+
+add_custom_target(driver
+    COMMAND bash ${CMAKE_SOURCE_DIR}/test/driver.sh
+    WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
+    COMMENT "Running test-driver"
+)
+
+list(APPEND ALL_TEST_TARGETS driver)
+
+add_custom_target(all_tests DEPENDS ${ALL_TEST_TARGETS})
 
 add_custom_target(clear
     COMMAND rm -f ${CMAKE_SOURCE_DIR}/test/*.exe ${CMAKE_SOURCE_DIR}/test/*.s
