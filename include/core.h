@@ -37,6 +37,7 @@ enum class NodeKind : int {
   ND_LT,         // <
   ND_LE,         // <=
   ND_ASSIGN,     // =
+  ND_COMMA,      // ,
   ND_ADDR,       // unary &
   ND_DEREF,      // unary *
   ND_RETURN,     // "return"

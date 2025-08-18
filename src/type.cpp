@@ -65,6 +65,9 @@ void add_type(Node *node) {
     case NodeKind::ND_VAR:
       node->ty = node->var->ty;
       return;
+    case NodeKind::ND_COMMA:
+      node->ty = node->rhs->ty;
+      return;
     case NodeKind::ND_ADDR:
       if (node->lhs->ty->kind == TypeKind::TY_ARRAY)
         node->ty = Type::pointer_to(node->lhs->ty->base);
