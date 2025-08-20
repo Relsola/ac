@@ -163,7 +163,8 @@ class Type {
 
   TypeKind kind;
 
-  int size = 0;  // sizeof() value
+  int size = 0;   // sizeof() value
+  int align = 0;  // alignment
 
   // Pointer-to or array-of type. We intentionally use the same member
   // to represent pointer/array duality in C.
@@ -193,7 +194,7 @@ class Type {
 
   Type(TypeKind kind) : kind(kind){};
 
-  Type(TypeKind kind, int size) : kind(kind), size(size){};
+  Type(TypeKind kind, int size, int align) : kind(kind), size(size), align(align){};
 
   bool is_integer() { return this->kind == TypeKind::TY_INT || this->kind == TypeKind::TY_CHAR; };
 };
@@ -219,5 +220,7 @@ void error_tok(Token *tok, char *fmt, ...);
 Token *tokenize_file(char *filename);
 
 Obj *parse(Token *tok);
+
+int align_to(int n, int align);
 
 void codegen(Obj *prog, FILE *out);

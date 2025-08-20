@@ -1,7 +1,7 @@
 #include "core.h"
 
-Type *Type::ty_char = new Type(TypeKind::TY_CHAR, 1);
-Type *Type::ty_int = new Type(TypeKind::TY_INT, 8);
+Type *Type::ty_char = new Type(TypeKind::TY_CHAR, 1, 1);
+Type *Type::ty_int = new Type(TypeKind::TY_INT, 8, 8);
 
 Type *Type::copy_type(Type *ty) {
   Type *ret = new Type();
@@ -10,7 +10,7 @@ Type *Type::copy_type(Type *ty) {
 }
 
 Type *Type::pointer_to(Type *base) {
-  Type *ty = new Type(TypeKind::TY_PTR, 8);
+  Type *ty = new Type(TypeKind::TY_PTR, 8, 8);
   ty->base = base;
   return ty;
 }
@@ -22,7 +22,7 @@ Type *Type::func_type(Type *return_ty) {
 }
 
 Type *Type::array_of(Type *base, int len) {
-  Type *ty = new Type(TypeKind::TY_ARRAY, base->size * len);
+  Type *ty = new Type(TypeKind::TY_ARRAY, base->size * len, base->align);
   ty->base = base;
   ty->array_len = len;
   return ty;
