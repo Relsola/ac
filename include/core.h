@@ -225,3 +225,5 @@ Obj *parse(Token *tok);
 int align_to(int n, int align);
 
 void codegen(Obj *prog, FILE *out);
+
+#define unreachable() error("internal error at %s:%d", __FILE__, __LINE__)
