@@ -189,6 +189,11 @@ static Type *declspec(Token **rest, Token *tok) {
     return Type::ty_char;
   }
 
+  if (tok->equal("short")) {
+    *rest = tok->next;
+    return Type::ty_short;
+  }
+
   if (tok->equal("int")) {
     *rest = tok->next;
     return Type::ty_int;
@@ -817,7 +822,7 @@ static Token *global_variable(Token *tok, Type *basety) {
 static bool is_function(Token *tok) {
   if (tok->equal(";")) return false;
 
-  Type dummy;
+  Type dummy = {};
   Type *ty = declarator(&tok, tok, &dummy);
   return ty->kind == TypeKind::TY_FUNC;
 }

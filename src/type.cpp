@@ -1,8 +1,9 @@
 #include "core.h"
 
 Type *Type::ty_char = new Type(TypeKind::TY_CHAR, 1, 1);
+Type *Type::ty_short = new Type(TypeKind::TY_SHORT, 2, 2);
 Type *Type::ty_int = new Type(TypeKind::TY_INT, 4, 4);
-Type *Type::ty_long = new Type(TypeKind::TY_INT, 8, 8);
+Type *Type::ty_long = new Type(TypeKind::TY_LONG, 8, 8);
 
 Type *Type::copy_type(Type *ty) {
   Type *ret = new Type();

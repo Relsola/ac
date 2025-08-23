@@ -28,6 +28,7 @@ enum class TokenKind : int {
 };
 
 enum class NodeKind : int {
+  INVALID,
   ND_ADD,        // +
   ND_SUB,        // -
   ND_MUL,        // *
@@ -54,7 +55,9 @@ enum class NodeKind : int {
 };
 
 enum class TypeKind : int {
+  INVALID,
   TY_CHAR,
+  TY_SHORT,
   TY_INT,
   TY_LONG,
   TY_PTR,
@@ -119,10 +122,10 @@ class Obj {
 
 class Node {
  public:
-  NodeKind kind = NodeKind::ND_NUM;  // Node kind
-  Node *next = nullptr;              // Next node
-  Type *ty = nullptr;                // Type, e.g. int or pointer to int
-  Token *tok = nullptr;              // Representative token
+  NodeKind kind = NodeKind::INVALID;  // Node kind
+  Node *next = nullptr;               // Next node
+  Type *ty = nullptr;                 // Type, e.g. int or pointer to int
+  Token *tok = nullptr;               // Representative token
 
   Node *lhs = nullptr;  // Left-hand side
   Node *rhs = nullptr;  // Right-hand side
@@ -152,8 +155,9 @@ class Node {
 
 class Type {
  public:
-  static Type *ty_int;
   static Type *ty_char;
+  static Type *ty_short;
+  static Type *ty_int;
   static Type *ty_long;
 
   static Type *pointer_to(Type *base);
@@ -164,7 +168,7 @@ class Type {
 
   static Type *array_of(Type *base, int size);
 
-  TypeKind kind;
+  TypeKind kind = TypeKind::INVALID;
 
   int size = 0;   // sizeof() value
   int align = 0;  // alignment
@@ -201,7 +205,8 @@ class Type {
 
   bool is_integer() {
     TypeKind k = this->kind;
-    return k == TypeKind::TY_CHAR || k == TypeKind::TY_INT || k == TypeKind::TY_LONG;
+    return k == TypeKind::TY_CHAR || k == TypeKind::TY_SHORT || k == TypeKind::TY_INT ||
+           k == TypeKind::TY_LONG;
   };
 };
 
