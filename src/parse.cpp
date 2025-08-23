@@ -248,9 +248,18 @@ static Type *type_suffix(Token **rest, Token *tok, Type *ty) {
   return ty;
 }
 
-// declarator = "*"* ident
+// declarator = "*"* ("(" ident ")" | "(" declarator ")" | ident) type-suffix
 static Type *declarator(Token **rest, Token *tok, Type *ty) {
   while (tok->consume(&tok, "*")) ty = Type::pointer_to(ty);
+
+  if (tok->equal("(")) {
+    Token *start = tok;
+    Type dummy = {};
+    declarator(&tok, start->next, &dummy);
+    tok = tok->skip(")");
+    ty = type_suffix(rest, tok, ty);
+    return declarator(&tok, start->next, ty);
+  }
 
   if (tok->kind != TokenKind::TK_IDENT) error_tok(tok, "expected a variable name");
 
