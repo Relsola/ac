@@ -105,6 +105,7 @@ class Obj {
 
   // Global variable or function
   bool is_function = false;
+  bool is_definition = false;
 
   // Global variable
   char *init_data = nullptr;

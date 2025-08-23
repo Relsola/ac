@@ -797,6 +797,9 @@ static Token *function(Token *tok, Type *basety) {
 
   Obj *fn = new_gvar(get_ident(ty->name), ty);
   fn->is_function = true;
+  fn->is_definition = !tok->consume(&tok, ";");
+
+  if (!fn->is_definition) return tok;
 
   locals = nullptr;
   enter_scope();
