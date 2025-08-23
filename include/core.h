@@ -56,6 +56,7 @@ enum class NodeKind : int {
 enum class TypeKind : int {
   TY_CHAR,
   TY_INT,
+  TY_LONG,
   TY_PTR,
   TY_FUNC,
   TY_ARRAY,
@@ -144,7 +145,7 @@ class Node {
   Node *args = nullptr;
 
   Obj *var = nullptr;  // Used if kind == ND_VAR
-  int val = 0;         // Used if kind == ND_NUM
+  int64_t val;         // Used if kind == ND_NUM
 
   Node() = default;
 };
@@ -153,6 +154,7 @@ class Type {
  public:
   static Type *ty_int;
   static Type *ty_char;
+  static Type *ty_long;
 
   static Type *pointer_to(Type *base);
 
@@ -197,7 +199,10 @@ class Type {
 
   Type(TypeKind kind, int size, int align) : kind(kind), size(size), align(align){};
 
-  bool is_integer() { return this->kind == TypeKind::TY_INT || this->kind == TypeKind::TY_CHAR; };
+  bool is_integer() {
+    TypeKind k = this->kind;
+    return k == TypeKind::TY_CHAR || k == TypeKind::TY_INT || k == TypeKind::TY_LONG;
+  };
 };
 
 class Member {

@@ -114,7 +114,7 @@ static void gen_expr(Node *node) {
 
   switch (node->kind) {
     case NodeKind::ND_NUM:
-      println("  mov $%d, %%rax", node->val);
+      println("  mov $%ld, %%rax", node->val);
       return;
     case NodeKind::ND_NEG:
       gen_expr(node->lhs);

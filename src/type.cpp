@@ -2,6 +2,7 @@
 
 Type *Type::ty_char = new Type(TypeKind::TY_CHAR, 1, 1);
 Type *Type::ty_int = new Type(TypeKind::TY_INT, 4, 4);
+Type *Type::ty_long = new Type(TypeKind::TY_INT, 8, 8);
 
 Type *Type::copy_type(Type *ty) {
   Type *ret = new Type();
@@ -60,7 +61,7 @@ void add_type(Node *node) {
     case NodeKind::ND_LE:
     case NodeKind::ND_NUM:
     case NodeKind::ND_FUNCALL:
-      node->ty = Type::ty_int;
+      node->ty = Type::ty_long;
       return;
     case NodeKind::ND_VAR:
       node->ty = node->var->ty;
