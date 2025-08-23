@@ -60,6 +60,7 @@ enum class TypeKind : int {
   TY_FUNC,
   TY_ARRAY,
   TY_STRUCT,
+  TY_UNION,
 };
 
 class Token {
