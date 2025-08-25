@@ -8,6 +8,8 @@ int main() {
   ASSERT(4, ({ int x; sizeof(x); }));
   ASSERT(8, ({ long int x; sizeof(x); }));
   ASSERT(8, ({ int long x; sizeof(x); }));
+
+  ASSERT(8, ({ long long x; sizeof(x); }));
   // clang-format on
 
   printf("OK\n");
