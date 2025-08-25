@@ -338,6 +338,31 @@ static Type *type_suffix(Token **rest, Token *tok, Type *ty) {
   return ty;
 }
 
+// abstract-declarator = "*"* ("(" abstract-declarator ")")? type-suffix
+static Type *abstract_declarator(Token **rest, Token *tok, Type *ty) {
+  while (tok->equal("*")) {
+    ty = Type::pointer_to(ty);
+    tok = tok->next;
+  }
+
+  if (tok->equal("(")) {
+    Token *start = tok;
+    Type dummy = {};
+    abstract_declarator(&tok, start->next, &dummy);
+    tok = tok->skip(")");
+    ty = type_suffix(rest, tok, ty);
+    return abstract_declarator(&tok, start->next, ty);
+  }
+
+  return type_suffix(rest, tok, ty);
+}
+
+// type-name = declspec abstract-declarator
+static Type *type_name(Token **rest, Token *tok) {
+  Type *ty = declspec(&tok, tok, NULL);
+  return abstract_declarator(rest, tok, ty);
+}
+
 // declarator = "*"* ("(" ident ")" | "(" declarator ")" | ident) type-suffix
 static Type *declarator(Token **rest, Token *tok, Type *ty) {
   while (tok->consume(&tok, "*")) ty = Type::pointer_to(ty);
@@ -846,11 +871,14 @@ static Node *funcall(Token **rest, Token *tok) {
 
 // primary = "(" "{" stmt+ "}" ")"
 //         | "(" expr ")"
+//         | "sizeof" "(" type-name ")"
 //         | "sizeof" unary
 //         | ident func-args?
 //         | str
 //         | num
 static Node *primary(Token **rest, Token *tok) {
+  Token *start = tok;
+
   if (tok->equal("(") && tok->next->equal("{")) {
     // This is a GNU statement expression.
     Node *node = new_node(NodeKind::ND_STMT_EXPR, tok);
@@ -863,6 +891,12 @@ static Node *primary(Token **rest, Token *tok) {
     Node *node = expr(&tok, tok->next);
     *rest = tok->skip(")");
     return node;
+  }
+
+  if (tok->equal("sizeof") && tok->next->equal("(") && is_typename(tok->next->next)) {
+    Type *ty = type_name(&tok, tok->next->next);
+    *rest = tok->skip(")");
+    return new_num(ty->size, start);
   }
 
   if (tok->equal("sizeof")) {
