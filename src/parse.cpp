@@ -70,6 +70,7 @@ static Node *equality(Token **rest, Token *tok);
 static Node *relational(Token **rest, Token *tok);
 static Node *add(Token **rest, Token *tok);
 static Node *mul(Token **rest, Token *tok);
+static Node *cast(Token **rest, Token *tok);
 static Type *struct_decl(Token **rest, Token *tok);
 static Type *union_decl(Token **rest, Token *tok);
 static Node *postfix(Token **rest, Token *tok);
@@ -131,6 +132,14 @@ static Node *new_num(int64_t val, Token *tok) {
 static Node *new_var_node(Obj *var, Token *tok) {
   Node *node = new_node(NodeKind::ND_VAR, tok);
   node->var = var;
+  return node;
+}
+
+static Node *new_cast(Node *expr, Type *ty) {
+  add_type(expr);
+
+  Node *node = new_unary(NodeKind::ND_CAST, expr, expr->tok);
+  node->ty = Type::copy_type(ty);
   return node;
 }
 
@@ -676,20 +685,20 @@ static Node *add(Token **rest, Token *tok) {
   }
 }
 
-// mul = unary ("*" unary | "/" unary)*
+// mul = cast ("*" cast | "/" cast)*
 static Node *mul(Token **rest, Token *tok) {
-  Node *node = unary(&tok, tok);
+  Node *node = cast(&tok, tok);
 
   for (;;) {
     Token *start = tok;
 
     if (tok->equal("*")) {
-      node = new_binary(NodeKind::ND_MUL, node, unary(&tok, tok->next), start);
+      node = new_binary(NodeKind::ND_MUL, node, cast(&tok, tok->next), start);
       continue;
     }
 
     if (tok->equal("/")) {
-      node = new_binary(NodeKind::ND_DIV, node, unary(&tok, tok->next), start);
+      node = new_binary(NodeKind::ND_DIV, node, cast(&tok, tok->next), start);
       continue;
     }
 
@@ -698,16 +707,30 @@ static Node *mul(Token **rest, Token *tok) {
   }
 }
 
-// unary = ("+" | "-" | "*" | "&") unary
+// cast = "(" type-name ")" cast | unary
+static Node *cast(Token **rest, Token *tok) {
+  if (tok->equal("(") && is_typename(tok->next)) {
+    Token *start = tok;
+    Type *ty = type_name(&tok, tok->next);
+    tok = tok->skip(")");
+    Node *node = new_cast(cast(rest, tok), ty);
+    node->tok = start;
+    return node;
+  }
+
+  return unary(rest, tok);
+}
+
+// unary = ("+" | "-" | "*" | "&") cast
 //       | primary
 static Node *unary(Token **rest, Token *tok) {
-  if (tok->equal("+")) return unary(rest, tok->next);
+  if (tok->equal("+")) return cast(rest, tok->next);
 
-  if (tok->equal("-")) return new_unary(NodeKind::ND_NEG, unary(rest, tok->next), tok);
+  if (tok->equal("-")) return new_unary(NodeKind::ND_NEG, cast(rest, tok->next), tok);
 
-  if (tok->equal("&")) return new_unary(NodeKind::ND_ADDR, unary(rest, tok->next), tok);
+  if (tok->equal("&")) return new_unary(NodeKind::ND_ADDR, cast(rest, tok->next), tok);
 
-  if (tok->equal("*")) return new_unary(NodeKind::ND_DEREF, unary(rest, tok->next), tok);
+  if (tok->equal("*")) return new_unary(NodeKind::ND_DEREF, cast(rest, tok->next), tok);
 
   return postfix(rest, tok);
 }
