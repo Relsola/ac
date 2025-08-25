@@ -51,6 +51,7 @@ static Obj *globals;
 
 static Scope *scope = new Scope();
 
+static bool is_typename(Token *tok);
 static Type *declspec(Token **rest, Token *tok);
 static Type *declarator(Token **rest, Token *tok, Type *ty);
 static Node *declaration(Token **rest, Token *tok);
@@ -182,39 +183,89 @@ static void push_tag_scope(Token *tok, Type *ty) {
   scope->tags = sc;
 }
 
-// declspec = "void" | "char" | "short" | "int" | "long"
-//          | struct-decl | union-decl
+// declspec = ("void" | "char" | "short" | "int" | "long"
+//             | struct-decl | union-decl)+
+//
+// The order of typenames in a type-specifier doesn't matter. For
+// example, `int long static` means the same as `static long int`.
+// That can also be written as `static long` because you can omit
+// `int` if `long` or `short` are specified. However, something like
+// `char int` is not a valid type specifier. We have to accept only a
+// limited combinations of the typenames.
+//
+// In this function, we count the number of occurrences of each typename
+// while keeping the "current" type object that the typenames up
+// until that point represent. When we reach a non-typename token,
+// we returns the current type object.
 static Type *declspec(Token **rest, Token *tok) {
-  if (tok->equal("void")) {
-    *rest = tok->next;
-    return Type::ty_void;
+  // We use a single integer as counters for all typenames.
+  // For example, bits 0 and 1 represents how many times we saw the
+  // keyword "void" so far. With this, we can use a switch statement
+  // as you can see below.
+  enum {
+    VOID = 1 << 0,
+    CHAR = 1 << 2,
+    SHORT = 1 << 4,
+    INT = 1 << 6,
+    LONG = 1 << 8,
+    OTHER = 1 << 10,
+  };
+
+  Type *ty = Type::ty_int;
+  int counter = 0;
+
+  while (is_typename(tok)) {
+    // Handle user-defined types.
+    if (tok->equal("struct") || tok->equal("union")) {
+      if (tok->equal("struct"))
+        ty = struct_decl(&tok, tok->next);
+      else
+        ty = union_decl(&tok, tok->next);
+      counter += OTHER;
+      continue;
+    }
+
+    // Handle built-in types.
+    if (tok->equal("void"))
+      counter += VOID;
+    else if (tok->equal("char"))
+      counter += CHAR;
+    else if (tok->equal("short"))
+      counter += SHORT;
+    else if (tok->equal("int"))
+      counter += INT;
+    else if (tok->equal("long"))
+      counter += LONG;
+    else
+      unreachable();
+
+    switch (counter) {
+      case VOID:
+        ty = Type::ty_void;
+        break;
+      case CHAR:
+        ty = Type::ty_char;
+        break;
+      case SHORT:
+      case SHORT + INT:
+        ty = Type::ty_short;
+        break;
+      case INT:
+        ty = Type::ty_int;
+        break;
+      case LONG:
+      case LONG + INT:
+        ty = Type::ty_long;
+        break;
+      default:
+        error_tok(tok, "invalid type");
+    }
+
+    tok = tok->next;
   }
 
-  if (tok->equal("char")) {
-    *rest = tok->next;
-    return Type::ty_char;
-  }
-
-  if (tok->equal("short")) {
-    *rest = tok->next;
-    return Type::ty_short;
-  }
-
-  if (tok->equal("int")) {
-    *rest = tok->next;
-    return Type::ty_int;
-  }
-
-  if (tok->equal("long")) {
-    *rest = tok->next;
-    return Type::ty_long;
-  }
-
-  if (tok->equal("struct")) return struct_decl(rest, tok->next);
-
-  if (tok->equal("union")) return union_decl(rest, tok->next);
-
-  error_tok(tok, "typename expected");
+  *rest = tok;
+  return ty;
 }
 
 // func-params = (param ("," param)*)? ")"
