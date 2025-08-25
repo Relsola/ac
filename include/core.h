@@ -224,6 +224,8 @@ class Member {
   Member() = default;
 };
 
+Node *new_cast(Node *expr, Type *ty);
+
 void add_type(Node *node);
 
 void error(char *fmt, ...);

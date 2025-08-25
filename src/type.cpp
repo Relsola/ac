@@ -32,6 +32,25 @@ Type *Type::array_of(Type *base, int len) {
   return ty;
 }
 
+static Type *get_common_type(Type *ty1, Type *ty2) {
+  if (ty1->base) return Type::pointer_to(ty1->base);
+  if (ty1->size == 8 || ty2->size == 8) return Type::ty_long;
+  return Type::ty_int;
+}
+
+// For many binary operators, we implicitly promote operands so that
+// both operands have the same type. Any integral type smaller than
+// int is always promoted to int. If the type of one operand is larger
+// than the other's (e.g. "long" vs. "int"), the smaller operand will
+// be promoted to match with the other.
+//
+// This operation is called the "usual arithmetic conversion".
+static void usual_arith_conv(Node **lhs, Node **rhs) {
+  Type *ty = get_common_type((*lhs)->ty, (*rhs)->ty);
+  *lhs = new_cast(*lhs, ty);
+  *rhs = new_cast(*rhs, ty);
+}
+
 void add_type(Node *node) {
   if (!node || node->ty) return;
 
@@ -47,13 +66,22 @@ void add_type(Node *node) {
   for (Node *n = node->args; n; n = n->next) add_type(n);
 
   switch (node->kind) {
+    case NodeKind::ND_NUM:
+      node->ty = (node->val == (int)node->val) ? Type::ty_int : Type::ty_long;
+      return;
     case NodeKind::ND_ADD:
     case NodeKind::ND_SUB:
     case NodeKind::ND_MUL:
     case NodeKind::ND_DIV:
-    case NodeKind::ND_NEG:
+      usual_arith_conv(&node->lhs, &node->rhs);
       node->ty = node->lhs->ty;
       return;
+    case NodeKind::ND_NEG: {
+      Type *ty = get_common_type(Type::ty_int, node->lhs->ty);
+      node->lhs = new_cast(node->lhs, ty);
+      node->ty = ty;
+      return;
+    }
     case NodeKind::ND_ASSIGN:
       if (node->lhs->ty->kind == TypeKind::TY_ARRAY) error_tok(node->lhs->tok, "not an lvalue");
       node->ty = node->lhs->ty;
@@ -62,7 +90,9 @@ void add_type(Node *node) {
     case NodeKind::ND_NE:
     case NodeKind::ND_LT:
     case NodeKind::ND_LE:
-    case NodeKind::ND_NUM:
+      usual_arith_conv(&node->lhs, &node->rhs);
+      node->ty = Type::ty_int;
+      return;
     case NodeKind::ND_FUNCALL:
       node->ty = Type::ty_long;
       return;
