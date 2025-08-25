@@ -56,6 +56,7 @@ enum class NodeKind : int {
 
 enum class TypeKind : int {
   INVALID,
+  TY_VOID,
   TY_CHAR,
   TY_SHORT,
   TY_INT,
@@ -156,6 +157,7 @@ class Node {
 
 class Type {
  public:
+  static Type *ty_void;
   static Type *ty_char;
   static Type *ty_short;
   static Type *ty_int;

@@ -1,5 +1,7 @@
 #include "core.h"
 
+Type *Type::ty_void = new Type(TypeKind::TY_VOID, 1, 1);
+
 Type *Type::ty_char = new Type(TypeKind::TY_CHAR, 1, 1);
 Type *Type::ty_short = new Type(TypeKind::TY_SHORT, 2, 2);
 Type *Type::ty_int = new Type(TypeKind::TY_INT, 4, 4);
@@ -81,6 +83,9 @@ void add_type(Node *node) {
       return;
     case NodeKind::ND_DEREF:
       if (!node->lhs->ty->base) error_tok(node->tok, "invalid pointer dereference");
+
+      if (node->lhs->ty->base->kind == TypeKind::TY_VOID)
+        error_tok(node->tok, "dereferencing a void pointer");
 
       node->ty = node->lhs->ty->base;
       return;

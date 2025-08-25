@@ -90,6 +90,7 @@ static bool is_keyword(Token *tok) {
       "else",
       "for",
       "while",
+      "void",
       "short",
       "int",
       "long",

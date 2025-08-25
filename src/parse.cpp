@@ -182,8 +182,14 @@ static void push_tag_scope(Token *tok, Type *ty) {
   scope->tags = sc;
 }
 
-// declspec = "char" | "short" | "int" | "long" | struct-decl | union-decl
+// declspec = "void" | "char" | "short" | "int" | "long"
+//          | struct-decl | union-decl
 static Type *declspec(Token **rest, Token *tok) {
+  if (tok->equal("void")) {
+    *rest = tok->next;
+    return Type::ty_void;
+  }
+
   if (tok->equal("char")) {
     *rest = tok->next;
     return Type::ty_char;
@@ -280,6 +286,8 @@ static Node *declaration(Token **rest, Token *tok) {
     if (i++ > 0) tok = tok->skip(",");
 
     Type *ty = declarator(&tok, tok, basety);
+    if (ty->kind == TypeKind::TY_VOID) error_tok(tok, "variable declared void");
+
     Obj *var = new_lvar(get_ident(ty->name), ty);
 
     if (!tok->equal("=")) continue;
@@ -298,8 +306,19 @@ static Node *declaration(Token **rest, Token *tok) {
 
 // Returns true if a given token represents a type.
 static bool is_typename(Token *tok) {
-  return tok->equal("char") || tok->equal("short") || tok->equal("int") || tok->equal("long") ||
-         tok->equal("struct") || tok->equal("union");
+  static char *kw[] = {
+      "void",
+      "char",
+      "short",
+      "int",
+      "long",
+      "struct",
+      "union",
+  };
+
+  for (int i = 0; i < sizeof(kw) / sizeof(*kw); i++)
+    if (tok->equal(kw[i])) return true;
+  return false;
 }
 
 // stmt = "return" expr ";"
