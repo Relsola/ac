@@ -88,7 +88,7 @@ class Token {
 
   Token *skip(char *s);
 
-  int get_number();
+  long get_number();
 
   bool consume(Token **rest, char *str);
 };

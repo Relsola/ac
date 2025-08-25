@@ -6,7 +6,7 @@ Token *Token::skip(char *s) {
   return this->next;
 }
 
-int Token::get_number() {
+long Token::get_number() {
   if (this->kind != TokenKind::TK_NUM) error_tok(this, "expected a number");
 
   return this->val;
