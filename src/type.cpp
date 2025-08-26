@@ -1,6 +1,7 @@
 #include "core.h"
 
 Type *Type::ty_void = new Type(TypeKind::TY_VOID, 1, 1);
+Type *Type::ty_bool = new Type(TypeKind::TY_BOOL, 1, 1);
 
 Type *Type::ty_char = new Type(TypeKind::TY_CHAR, 1, 1);
 Type *Type::ty_short = new Type(TypeKind::TY_SHORT, 2, 2);
@@ -84,6 +85,8 @@ void add_type(Node *node) {
     }
     case NodeKind::ND_ASSIGN:
       if (node->lhs->ty->kind == TypeKind::TY_ARRAY) error_tok(node->lhs->tok, "not an lvalue");
+      if (node->lhs->ty->kind != TypeKind::TY_STRUCT)
+        node->rhs = new_cast(node->rhs, node->lhs->ty);
       node->ty = node->lhs->ty;
       return;
     case NodeKind::ND_EQ:

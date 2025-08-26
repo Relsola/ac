@@ -148,7 +148,10 @@ static Node *new_var_node(Obj *var, Token *tok) {
 Node *new_cast(Node *expr, Type *ty) {
   add_type(expr);
 
-  Node *node = new_unary(NodeKind::ND_CAST, expr, expr->tok);
+  Node *node = new Node();
+  node->kind = NodeKind::ND_CAST;
+  node->tok = expr->tok;
+  node->lhs = expr;
   node->ty = Type::copy_type(ty);
   return node;
 }
@@ -216,7 +219,7 @@ static void push_tag_scope(Token *tok, Type *ty) {
   scope->tags = sc;
 }
 
-// declspec = ("void" | "char" | "short" | "int" | "long"
+// declspec = ("void" | "_Bool" | "char" | "short" | "int" | "long"
 //             | "typedef"
 //             | struct-decl | union-decl | typedef-name)+
 //
@@ -238,11 +241,12 @@ static Type *declspec(Token **rest, Token *tok, VarAttr *attr) {
   // as you can see below.
   enum {
     VOID = 1 << 0,
-    CHAR = 1 << 2,
-    SHORT = 1 << 4,
-    INT = 1 << 6,
-    LONG = 1 << 8,
-    OTHER = 1 << 10,
+    BOOL = 1 << 2,
+    CHAR = 1 << 4,
+    SHORT = 1 << 6,
+    INT = 1 << 8,
+    LONG = 1 << 10,
+    OTHER = 1 << 12,
   };
 
   Type *ty = Type::ty_int;
@@ -278,6 +282,8 @@ static Type *declspec(Token **rest, Token *tok, VarAttr *attr) {
     // Handle built-in types.
     if (tok->equal("void"))
       counter += VOID;
+    else if (tok->equal("_Bool"))
+      counter += BOOL;
     else if (tok->equal("char"))
       counter += CHAR;
     else if (tok->equal("short"))
@@ -292,6 +298,9 @@ static Type *declspec(Token **rest, Token *tok, VarAttr *attr) {
     switch (counter) {
       case VOID:
         ty = Type::ty_void;
+        break;
+      case BOOL:
+        ty = Type::ty_bool;
         break;
       case CHAR:
         ty = Type::ty_char;
@@ -378,7 +387,7 @@ static Type *abstract_declarator(Token **rest, Token *tok, Type *ty) {
 
 // type-name = declspec abstract-declarator
 static Type *type_name(Token **rest, Token *tok) {
-  Type *ty = declspec(&tok, tok, NULL);
+  Type *ty = declspec(&tok, tok, nullptr);
   return abstract_declarator(rest, tok, ty);
 }
 
@@ -434,6 +443,7 @@ static Node *declaration(Token **rest, Token *tok, Type *basety) {
 static bool is_typename(Token *tok) {
   static char *kw[] = {
       "void",
+      "_Bool",
       "char",
       "short",
       "int",

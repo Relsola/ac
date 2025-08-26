@@ -59,6 +59,7 @@ enum class TypeKind : int {
   INVALID,
   TY_VOID,
   TY_CHAR,
+  TY_BOOL,
   TY_SHORT,
   TY_INT,
   TY_LONG,
@@ -144,7 +145,7 @@ class Node {
   Node *body = nullptr;
 
   // Struct member access
-  Member *member;
+  Member *member = nullptr;
 
   // Function call
   char *funcname = nullptr;
@@ -152,7 +153,7 @@ class Node {
   Node *args = nullptr;
 
   Obj *var = nullptr;  // Used if kind == ND_VAR
-  int64_t val;         // Used if kind == ND_NUM
+  int64_t val = 0;     // Used if kind == ND_NUM
 
   Node() = default;
 };
@@ -160,6 +161,8 @@ class Node {
 class Type {
  public:
   static Type *ty_void;
+  static Type *ty_bool;
+
   static Type *ty_char;
   static Type *ty_short;
   static Type *ty_int;
@@ -195,7 +198,7 @@ class Type {
   int array_len = 0;
 
   // Struct
-  Member *members;
+  Member *members = nullptr;
 
   // Function type
   Type *return_ty = nullptr;
@@ -210,8 +213,8 @@ class Type {
 
   bool is_integer() {
     TypeKind k = this->kind;
-    return k == TypeKind::TY_CHAR || k == TypeKind::TY_SHORT || k == TypeKind::TY_INT ||
-           k == TypeKind::TY_LONG;
+    return k == TypeKind::TY_BOOL || k == TypeKind::TY_CHAR || k == TypeKind::TY_SHORT ||
+           k == TypeKind::TY_INT || k == TypeKind::TY_LONG;
   };
 };
 
