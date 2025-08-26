@@ -858,7 +858,7 @@ static Node *cast(Token **rest, Token *tok) {
   return unary(rest, tok);
 }
 
-// unary = ("+" | "-" | "*" | "&") cast
+// unary = ("+" | "-" | "*" | "&" | "!") cast
 //       | ("++" | "--") unary
 //       | primary
 static Node *unary(Token **rest, Token *tok) {
@@ -869,6 +869,8 @@ static Node *unary(Token **rest, Token *tok) {
   if (tok->equal("&")) return new_unary(NodeKind::ND_ADDR, cast(rest, tok->next), tok);
 
   if (tok->equal("*")) return new_unary(NodeKind::ND_DEREF, cast(rest, tok->next), tok);
+
+  if (tok->equal("!")) return new_unary(NodeKind::ND_NOT, cast(rest, tok->next), tok);
 
   // Read ++i as i+=1
   if (tok->equal("++")) return to_assign(new_add(unary(rest, tok->next), new_num(1, tok), tok));

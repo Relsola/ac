@@ -101,6 +101,9 @@ void add_type(Node *node) {
     case NodeKind::ND_FUNCALL:
       node->ty = Type::ty_long;
       return;
+    case NodeKind::ND_NOT:
+      node->ty = Type::ty_int;
+      return;
     case NodeKind::ND_VAR:
       node->ty = node->var->ty;
       return;
