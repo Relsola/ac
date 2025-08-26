@@ -234,6 +234,7 @@ class Member {
  public:
   Member *next = nullptr;
   Type *ty = nullptr;
+  Token *tok = nullptr;  // for error message
   Token *name = nullptr;
   int offset = 0;
 
