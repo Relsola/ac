@@ -77,6 +77,8 @@ static Node *assign(Token **rest, Token *tok);
 static Node *equality(Token **rest, Token *tok);
 static Node *relational(Token **rest, Token *tok);
 static Node *add(Token **rest, Token *tok);
+static Node *new_add(Node *lhs, Node *rhs, Token *tok);
+static Node *new_sub(Node *lhs, Node *rhs, Token *tok);
 static Node *mul(Token **rest, Token *tok);
 static Node *cast(Token **rest, Token *tok);
 static Type *struct_decl(Token **rest, Token *tok);
@@ -649,10 +651,47 @@ static Node *expr(Token **rest, Token *tok) {
   return node;
 }
 
-// assign = equality ("=" assign)?
+// Convert `A op= B` to `tmp = &A, *tmp = *tmp op B`
+// where tmp is a fresh pointer variable.
+static Node *to_assign(Node *binary) {
+  add_type(binary->lhs);
+  add_type(binary->rhs);
+  Token *tok = binary->tok;
+
+  Obj *var = new_lvar("", Type::pointer_to(binary->lhs->ty));
+
+  Node *expr1 = new_binary(NodeKind::ND_ASSIGN,
+                           new_var_node(var, tok),
+                           new_unary(NodeKind::ND_ADDR, binary->lhs, tok),
+                           tok);
+
+  Node *expr2 = new_binary(NodeKind::ND_ASSIGN,
+                           new_unary(NodeKind::ND_DEREF, new_var_node(var, tok), tok),
+                           new_binary(binary->kind,
+                                      new_unary(NodeKind::ND_DEREF, new_var_node(var, tok), tok),
+                                      binary->rhs,
+                                      tok),
+                           tok);
+
+  return new_binary(NodeKind::ND_COMMA, expr1, expr2, tok);
+}
+
+// assign    = equality (assign-op assign)?
+// assign-op = "=" | "+=" | "-=" | "*=" | "/="
 static Node *assign(Token **rest, Token *tok) {
   Node *node = equality(&tok, tok);
   if (tok->equal("=")) node = new_binary(NodeKind::ND_ASSIGN, node, assign(&tok, tok->next), tok);
+
+  if (tok->equal("+=")) return to_assign(new_add(node, assign(rest, tok->next), tok));
+
+  if (tok->equal("-=")) return to_assign(new_sub(node, assign(rest, tok->next), tok));
+
+  if (tok->equal("*="))
+    return to_assign(new_binary(NodeKind::ND_MUL, node, assign(rest, tok->next), tok));
+
+  if (tok->equal("/="))
+    return to_assign(new_binary(NodeKind::ND_DIV, node, assign(rest, tok->next), tok));
+
   *rest = tok;
   return node;
 }
