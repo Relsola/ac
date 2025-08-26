@@ -362,9 +362,18 @@ static Type *func_params(Token **rest, Token *tok, Type *ty) {
   while (!tok->equal(")")) {
     if (cur != &head) tok = tok->skip(",");
 
-    Type *basety = declspec(&tok, tok, nullptr);
-    Type *ty = declarator(&tok, tok, basety);
-    cur = cur->next = Type::copy_type(ty);
+    Type *ty2 = declspec(&tok, tok, NULL);
+    ty2 = declarator(&tok, tok, ty2);
+
+    // "array of T" is converted to "pointer to T" only in the parameter
+    // context. For example, *argv[] is converted to **argv by this.
+    if (ty2->kind == TypeKind::TY_ARRAY) {
+      Token *name = ty2->name;
+      ty2 = Type::pointer_to(ty2->base);
+      ty2->name = name;
+    }
+
+    cur = cur->next = Type::copy_type(ty2);
   }
 
   ty = Type::func_type(ty);
