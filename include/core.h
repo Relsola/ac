@@ -63,6 +63,7 @@ enum class TypeKind : int {
   TY_SHORT,
   TY_INT,
   TY_LONG,
+  TY_ENUM,
   TY_PTR,
   TY_FUNC,
   TY_ARRAY,
@@ -176,6 +177,8 @@ class Type {
 
   static Type *array_of(Type *base, int size);
 
+  static Type *enum_type();
+
   TypeKind kind = TypeKind::INVALID;
 
   int size = 0;   // sizeof() value
@@ -214,7 +217,7 @@ class Type {
   bool is_integer() {
     TypeKind k = this->kind;
     return k == TypeKind::TY_BOOL || k == TypeKind::TY_CHAR || k == TypeKind::TY_SHORT ||
-           k == TypeKind::TY_INT || k == TypeKind::TY_LONG;
+           k == TypeKind::TY_INT || k == TypeKind::TY_LONG || k == TypeKind::TY_ENUM;
   };
 };
 
