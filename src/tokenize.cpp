@@ -102,6 +102,7 @@ static bool is_keyword(Token *tok) {
       "typedef",
       "_Bool",
       "enum",
+      "static",
   };
 
   for (int i = 0; i < sizeof(kw) / sizeof(*kw); i++)
