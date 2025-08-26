@@ -55,6 +55,8 @@ enum class NodeKind : int {
   ND_IF,         // "if"
   ND_FOR,        // "for" or "while"
   ND_BLOCK,      // { ... }
+  ND_GOTO,       // "goto"
+  ND_LABEL,      // Labeled statement
   ND_FUNCALL,    // Function call
   ND_EXPR_STMT,  // Expression statement
   ND_STMT_EXPR,  // Statement expression
@@ -161,6 +163,11 @@ class Node {
   char *funcname = nullptr;
   Type *func_ty = nullptr;
   Node *args = nullptr;
+
+  // Goto or labeled statement
+  char *label = nullptr;
+  char *unique_label = nullptr;
+  Node *goto_next = nullptr;
 
   Obj *var = nullptr;  // Used if kind == ND_VAR
   int64_t val = 0;     // Used if kind == ND_NUM

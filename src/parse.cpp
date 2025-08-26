@@ -54,15 +54,19 @@ struct VarAttr {
 
 // All local variable instances created during parsing are
 // accumulated to this list.
-static Obj *locals;
+static Obj *locals = nullptr;
 
 // Likewise, global variables are accumulated to this list.
-static Obj *globals;
+static Obj *globals = nullptr;
 
 static Scope *scope = new Scope();
 
 // Points to the function object the parser is currently parsing.
-static Obj *current_fn;
+static Obj *current_fn = nullptr;
+
+// Lists of all goto statements and labels in the curent function.
+static Node *gotos = nullptr;
+static Node *labels = nullptr;
 
 static bool is_typename(Token *tok);
 static Type *declspec(Token **rest, Token *tok, VarAttr *attr);
@@ -559,6 +563,8 @@ static bool is_typename(Token *tok) {
 //      | "if" "(" expr ")" stmt ("else" stmt)?
 //      | "for" "(" expr-stmt expr? ";" expr? ")" stmt
 //      | "while" "(" expr ")" stmt
+//      | "goto" ident ";"
+//      | ident ":" stmt
 //      | "{" compound-stmt
 //      | expr-stmt
 static Node *stmt(Token **rest, Token *tok) {
@@ -613,6 +619,25 @@ static Node *stmt(Token **rest, Token *tok) {
     node->cond = expr(&tok, tok);
     tok = tok->skip(")");
     node->then = stmt(rest, tok);
+    return node;
+  }
+
+  if (tok->equal("goto")) {
+    Node *node = new_node(NodeKind::ND_GOTO, tok);
+    node->label = get_ident(tok->next);
+    node->goto_next = gotos;
+    gotos = node;
+    *rest = tok->next->next->skip(";");
+    return node;
+  }
+
+  if (tok->kind == TokenKind::TK_IDENT && tok->next->equal(":")) {
+    Node *node = new_node(NodeKind::ND_LABEL, tok);
+    node->label = strndup(tok->loc, tok->len);
+    node->unique_label = new_unique_name();
+    node->lhs = stmt(rest, tok->next->next);
+    node->goto_next = labels;
+    labels = node;
     return node;
   }
 
@@ -1289,6 +1314,26 @@ static void create_param_lvars(Type *param) {
   }
 }
 
+// This function matches gotos with labels.
+//
+// We cannot resolve gotos as we parse a function because gotos
+// can refer a label that appears later in the function.
+// So, we need to do this after we parse the entire function.
+static void resolve_goto_labels(void) {
+  for (Node *x = gotos; x; x = x->goto_next) {
+    for (Node *y = labels; y; y = y->goto_next) {
+      if (!strcmp(x->label, y->label)) {
+        x->unique_label = y->unique_label;
+        break;
+      }
+    }
+
+    if (x->unique_label == nullptr) error_tok(x->tok->next, "use of undeclared label");
+  }
+
+  gotos = labels = nullptr;
+}
+
 static Token *function(Token *tok, Type *basety, VarAttr *attr) {
   Type *ty = declarator(&tok, tok, basety);
 
@@ -1309,6 +1354,7 @@ static Token *function(Token *tok, Type *basety, VarAttr *attr) {
   fn->body = compound_stmt(&tok, tok);
   fn->locals = locals;
   leave_scope();
+  resolve_goto_labels();
 
   return tok;
 }

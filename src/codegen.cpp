@@ -364,6 +364,13 @@ static void gen_stmt(Node *node) {
     case NodeKind::ND_BLOCK:
       for (Node *n = node->body; n; n = n->next) gen_stmt(n);
       return;
+    case NodeKind::ND_GOTO:
+      println("  jmp %s", node->unique_label);
+      return;
+    case NodeKind::ND_LABEL:
+      println("%s:", node->unique_label);
+      gen_stmt(node->lhs);
+      return;
     case NodeKind::ND_RETURN:
       gen_expr(node->lhs);
       println("  jmp .L.return.%s", current_fn->name);
