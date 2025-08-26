@@ -213,6 +213,10 @@ static void gen_expr(Node *node) {
       println("  sete %%al");
       println("  movzx %%al, %%rax");
       return;
+    case NodeKind::ND_BITNOT:
+      gen_expr(node->lhs);
+      println("  not %%rax");
+      return;
     case NodeKind::ND_FUNCALL: {
       int nargs = 0;
       for (Node *arg = node->args; arg; arg = arg->next) {

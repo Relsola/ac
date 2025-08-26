@@ -104,6 +104,9 @@ void add_type(Node *node) {
     case NodeKind::ND_NOT:
       node->ty = Type::ty_int;
       return;
+    case NodeKind::ND_BITNOT:
+      node->ty = node->lhs->ty;
+      return;
     case NodeKind::ND_VAR:
       node->ty = node->var->ty;
       return;
