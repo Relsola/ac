@@ -259,11 +259,15 @@ static void gen_expr(Node *node) {
       println("  imul %s, %s", di, ax);
       return;
     case NodeKind::ND_DIV:
+    case NodeKind::ND_MOD:
       if (node->lhs->ty->size == 8)
         println("  cqo");
       else
         println("  cdq");
+
       println("  idiv %s", di);
+
+      if (node->kind == NodeKind::ND_MOD) println("  mov %%rdx, %%rax");
       return;
     case NodeKind::ND_EQ:
     case NodeKind::ND_NE:
