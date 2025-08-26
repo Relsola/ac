@@ -148,6 +148,7 @@ class Node {
 
   // Function call
   char *funcname = nullptr;
+  Type *func_ty = nullptr;
   Node *args = nullptr;
 
   Obj *var = nullptr;  // Used if kind == ND_VAR
