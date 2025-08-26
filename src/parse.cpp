@@ -559,7 +559,14 @@ static Node *stmt(Token **rest, Token *tok) {
     Node *node = new_node(NodeKind::ND_FOR, tok);
     tok = tok->next->skip("(");
 
-    node->init = expr_stmt(&tok, tok);
+    enter_scope();
+
+    if (is_typename(tok)) {
+      Type *basety = declspec(&tok, tok, NULL);
+      node->init = declaration(&tok, tok, basety);
+    } else {
+      node->init = expr_stmt(&tok, tok);
+    }
 
     if (!tok->equal(";")) node->cond = expr(&tok, tok);
     tok = tok->skip(";");
@@ -568,6 +575,7 @@ static Node *stmt(Token **rest, Token *tok) {
     tok = tok->skip(")");
 
     node->then = stmt(rest, tok);
+    leave_scope();
     return node;
   }
 
