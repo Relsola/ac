@@ -96,6 +96,9 @@ void add_type(Node *node) {
     case NodeKind::ND_LT:
     case NodeKind::ND_LE:
     case NodeKind::ND_MOD:
+    case NodeKind::ND_BITAND:
+    case NodeKind::ND_BITOR:
+    case NodeKind::ND_BITXOR:
       usual_arith_conv(&node->lhs, &node->rhs);
       node->ty = Type::ty_int;
       return;
