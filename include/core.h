@@ -188,6 +188,8 @@ class Type {
 
   static Type *enum_type();
 
+  static Type *struct_type();
+
   TypeKind kind = TypeKind::INVALID;
 
   int size = 0;   // sizeof() value

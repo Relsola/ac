@@ -35,6 +35,8 @@ Type *Type::array_of(Type *base, int len) {
 
 Type *Type::enum_type() { return new Type(TypeKind::TY_ENUM, 4, 4); }
 
+Type *Type::struct_type(void) { return new Type(TypeKind::TY_STRUCT, 0, 1); }
+
 static Type *get_common_type(Type *ty1, Type *ty2) {
   if (ty1->base) return Type::pointer_to(ty1->base);
   if (ty1->size == 8 || ty2->size == 8) return Type::ty_long;
