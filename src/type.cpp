@@ -113,6 +113,8 @@ void add_type(Node *node) {
       node->ty = Type::ty_int;
       return;
     case NodeKind::ND_BITNOT:
+    case NodeKind::ND_SHL:
+    case NodeKind::ND_SHR:
       node->ty = node->lhs->ty;
       return;
     case NodeKind::ND_VAR:

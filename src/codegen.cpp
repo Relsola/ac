@@ -325,6 +325,17 @@ static void gen_expr(Node *node) {
 
       println("  movzb %%al, %%rax");
       return;
+    case NodeKind::ND_SHL:
+      println("  mov %%rdi, %%rcx");
+      println("  shl %%cl, %s", ax);
+      return;
+    case NodeKind::ND_SHR:
+      println("  mov %%rdi, %%rcx");
+      if (node->ty->size == 8)
+        println("  sar %%cl, %s", ax);
+      else
+        println("  sar %%cl, %s", ax);
+      return;
   }
 
   error_tok(node->tok, "invalid expression");

@@ -27,6 +27,7 @@ enum class TokenKind : int {
   TK_EOF,      // End-of-file markers
 };
 
+// AST node
 enum class NodeKind : int {
   INVALID,
   ND_ADD,        // +
@@ -38,6 +39,8 @@ enum class NodeKind : int {
   ND_BITAND,     // &
   ND_BITOR,      // |
   ND_BITXOR,     // ^
+  ND_SHL,        // <<
+  ND_SHR,        // >>
   ND_EQ,         // ==
   ND_NE,         // !=
   ND_LT,         // <
