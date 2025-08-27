@@ -153,6 +153,9 @@ class Node {
   Node *init = nullptr;
   Node *inc = nullptr;
 
+  // "break" label
+  char *brk_label = nullptr;
+
   // Block or statement expression
   Node *body = nullptr;
 
