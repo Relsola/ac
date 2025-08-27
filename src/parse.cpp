@@ -530,10 +530,28 @@ static Type *declarator(Token **rest, Token *tok, Type *ty) {
   return ty;
 }
 
+static bool is_end(Token *tok) {
+  return tok->equal("}") || (tok->equal(",") && tok->next->equal("}"));
+}
+
+static bool consume_end(Token **rest, Token *tok) {
+  if (tok->equal("}")) {
+    *rest = tok->next;
+    return true;
+  }
+
+  if (tok->equal(",") && tok->next->equal("}")) {
+    *rest = tok->next->next;
+    return true;
+  }
+
+  return false;
+}
+
 // enum-specifier = ident? "{" enum-list? "}"
 //                | ident ("{" enum-list? "}")?
 //
-// enum-list      = ident ("=" num)? ("," ident ("=" num)?)*
+// enum-list      = ident ("=" num)? ("," ident ("=" num)?)* ","?
 static Type *enum_specifier(Token **rest, Token *tok) {
   Type *ty = Type::enum_type();
 
@@ -557,7 +575,7 @@ static Type *enum_specifier(Token **rest, Token *tok) {
   // Read an enum-list.
   int i = 0;
   int val = 0;
-  while (!tok->equal("}")) {
+  while (!consume_end(rest, tok)) {
     if (i++ > 0) tok = tok->skip(",");
 
     char *name = get_ident(tok);
@@ -569,8 +587,6 @@ static Type *enum_specifier(Token **rest, Token *tok) {
     sc->enum_ty = ty;
     sc->enum_val = val++;
   }
-
-  *rest = tok->next;
 
   if (tag) push_tag_scope(tag, ty);
   return ty;
@@ -630,14 +646,14 @@ static int count_array_init_elements(Token *tok, Type *ty) {
   Initializer *dummy = new_initializer(ty->base, false);
   int i = 0;
 
-  for (; !tok->equal("}"); i++) {
+  for (; !consume_end(&tok, tok); i++) {
     if (i > 0) tok = tok->skip(",");
     initializer2(&tok, tok, dummy);
   }
   return i;
 }
 
-// array-initializer1 = "{" initializer ("," initializer)* "}"
+// array-initializer1 = "{" initializer ("," initializer)* ","? "}"
 static void array_initializer1(Token **rest, Token *tok, Initializer *init) {
   tok = tok->skip("{");
 
@@ -646,7 +662,7 @@ static void array_initializer1(Token **rest, Token *tok, Initializer *init) {
     *init = *new_initializer(Type::array_of(init->ty->base, len), false);
   }
 
-  for (int i = 0; !tok->consume(rest, "}"); i++) {
+  for (int i = 0; !consume_end(rest, tok); i++) {
     if (i > 0) tok = tok->skip(",");
 
     if (i < init->ty->array_len)
@@ -663,20 +679,20 @@ static void array_initializer2(Token **rest, Token *tok, Initializer *init) {
     *init = *new_initializer(Type::array_of(init->ty->base, len), false);
   }
 
-  for (int i = 0; i < init->ty->array_len && !tok->equal("}"); i++) {
+  for (int i = 0; i < init->ty->array_len && !is_end(tok); i++) {
     if (i > 0) tok = tok->skip(",");
     initializer2(&tok, tok, init->children[i]);
   }
   *rest = tok;
 }
 
-// struct-initializer1 = "{" initializer ("," initializer)* "}"
+// struct-initializer1 = "{" initializer ("," initializer)* ","? "}"
 static void struct_initializer1(Token **rest, Token *tok, Initializer *init) {
   tok = tok->skip("{");
 
   Member *mem = init->ty->members;
 
-  while (!tok->consume(rest, "}")) {
+  while (!consume_end(rest, tok)) {
     if (mem != init->ty->members) tok = tok->skip(",");
 
     if (mem) {
@@ -692,7 +708,7 @@ static void struct_initializer1(Token **rest, Token *tok, Initializer *init) {
 static void struct_initializer2(Token **rest, Token *tok, Initializer *init) {
   bool first = true;
 
-  for (Member *mem = init->ty->members; mem && !tok->equal("}"); mem = mem->next) {
+  for (Member *mem = init->ty->members; mem && !is_end(tok); mem = mem->next) {
     if (!first) tok = tok->skip(",");
     first = false;
     initializer2(&tok, tok, init->children[mem->idx]);
@@ -705,6 +721,7 @@ static void union_initializer(Token **rest, Token *tok, Initializer *init) {
   // and that initializes the first union member.
   if (tok->equal("{")) {
     initializer2(&tok, tok->next, init->children[0]);
+    tok->consume(&tok, ",");
     *rest = tok->skip("}");
   } else {
     initializer2(rest, tok, init->children[0]);
