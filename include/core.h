@@ -13,6 +13,7 @@
 class Type;
 class Node;
 class Member;
+class Relocation;
 
 //
 // strings.c
@@ -133,6 +134,7 @@ class Obj {
 
   // Global variable
   char *init_data = nullptr;
+  Relocation *rel = nullptr;
 
   // Function
   Obj *params = nullptr;
@@ -143,6 +145,19 @@ class Obj {
   Obj() = default;
 
   Obj(char *name, Type *ty) : name(name), ty(ty){};
+};
+
+// Global variable can be initialized either by a constant expression
+// or a pointer to another global variable. This struct represents the
+// latter.
+class Relocation {
+ public:
+  Relocation *next = nullptr;
+  int offset = 0;
+  char *label = nullptr;
+  long addend = 0;
+
+  Relocation() = default;
 };
 
 class Node {
