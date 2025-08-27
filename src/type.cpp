@@ -120,6 +120,14 @@ void add_type(Node *node) {
     case NodeKind::ND_VAR:
       node->ty = node->var->ty;
       return;
+    case NodeKind::ND_COND:
+      if (node->then->ty->kind == TypeKind::TY_VOID || node->els->ty->kind == TypeKind::TY_VOID) {
+        node->ty = Type::ty_void;
+      } else {
+        usual_arith_conv(&node->then, &node->els);
+        node->ty = node->then->ty;
+      }
+      return;
     case NodeKind::ND_COMMA:
       node->ty = node->rhs->ty;
       return;
