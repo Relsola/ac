@@ -171,6 +171,8 @@ static void gen_expr(Node *node) {
   println("  .loc 1 %d", node->tok->line_no);
 
   switch (node->kind) {
+    case NodeKind::ND_NULL_EXPR:
+      return;
     case NodeKind::ND_NUM:
       println("  mov $%ld, %%rax", node->val);
       return;
