@@ -579,17 +579,30 @@ static Node *declaration(Token **rest, Token *tok, Type *basety) {
   return node;
 }
 
+static Token *skip_excess_element(Token *tok) {
+  if (tok->equal("{")) {
+    tok = skip_excess_element(tok->next);
+    return tok->skip("}");
+  }
+
+  assign(&tok, tok);
+  return tok;
+}
+
 // initializer = "{" initializer ("," initializer)* "}"
 //             | assign
 static void initializer2(Token **rest, Token *tok, Initializer *init) {
   if (init->ty->kind == TypeKind::TY_ARRAY) {
     tok = tok->skip("{");
 
-    for (int i = 0; i < init->ty->array_len && !tok->equal("}"); i++) {
+    for (int i = 0; !tok->consume(rest, "}"); i++) {
       if (i > 0) tok = tok->skip(",");
-      initializer2(&tok, tok, init->children[i]);
+
+      if (i < init->ty->array_len)
+        initializer2(&tok, tok, init->children[i]);
+      else
+        tok = skip_excess_element(tok);
     }
-    *rest = tok->skip("}");
     return;
   }
 
