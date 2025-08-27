@@ -88,6 +88,7 @@ static Node *expr_stmt(Token **rest, Token *tok);
 static Node *expr(Token **rest, Token *tok);
 static Node *assign(Token **rest, Token *tok);
 static Node *logor(Token **rest, Token *tok);
+static int64_t const_expr(Token **rest, Token *tok);
 static Node *conditional(Token **rest, Token *tok);
 static Node *logand(Token **rest, Token *tok);
 static Node *bit_or(Token **rest, Token *tok);
@@ -396,15 +397,15 @@ static Type *func_params(Token **rest, Token *tok, Type *ty) {
   return ty;
 }
 
-// array-dimensions = num? "]" type-suffix
+// array-dimensions = const-expr? "]" type-suffix
 static Type *array_dimensions(Token **rest, Token *tok, Type *ty) {
   if (tok->equal("]")) {
     ty = type_suffix(rest, tok->next, ty);
     return Type::array_of(ty, -1);
   }
 
-  int sz = tok->get_number();
-  tok = tok->next->skip("]");
+  int sz = const_expr(&tok, tok);
+  tok = tok->skip("]");
   ty = type_suffix(rest, tok, ty);
   return Type::array_of(ty, sz);
 }
@@ -499,10 +500,7 @@ static Type *enum_specifier(Token **rest, Token *tok) {
     char *name = get_ident(tok);
     tok = tok->next;
 
-    if (tok->equal("=")) {
-      val = tok->next->get_number();
-      tok = tok->next->next;
-    }
+    if (tok->equal("=")) val = const_expr(&tok, tok->next);
 
     VarScope *sc = push_scope(name);
     sc->enum_ty = ty;
@@ -572,7 +570,7 @@ static bool is_typename(Token *tok) {
 // stmt = "return" expr ";"
 //      | "if" "(" expr ")" stmt ("else" stmt)?
 //      | "switch" "(" expr ")" stmt
-//      | "case" num ":" stmt
+//      | "case" const-expr ":" stmt
 //      | "default" ":" stmt
 //      | "for" "(" expr-stmt expr? ";" expr? ")" stmt
 //      | "while" "(" expr ")" stmt
@@ -625,10 +623,10 @@ static Node *stmt(Token **rest, Token *tok) {
 
   if (tok->equal("case")) {
     if (!current_switch) error_tok(tok, "stray case");
-    int val = tok->next->get_number();
 
     Node *node = new_node(NodeKind::ND_CASE, tok);
-    tok = tok->next->next->skip(":");
+    int val = const_expr(&tok, tok->next);
+    tok = tok->skip(":");
     node->label = new_unique_name();
     node->lhs = stmt(rest, tok);
     node->val = val;
@@ -792,6 +790,77 @@ static Node *expr(Token **rest, Token *tok) {
 
   *rest = tok;
   return node;
+}
+
+// Evaluate a given node as a constant expression.
+static int64_t eval(Node *node) {
+  add_type(node);
+
+  switch (node->kind) {
+    case NodeKind::ND_ADD:
+      return eval(node->lhs) + eval(node->rhs);
+    case NodeKind::ND_SUB:
+      return eval(node->lhs) - eval(node->rhs);
+    case NodeKind::ND_MUL:
+      return eval(node->lhs) * eval(node->rhs);
+    case NodeKind::ND_DIV:
+      return eval(node->lhs) / eval(node->rhs);
+    case NodeKind::ND_NEG:
+      return -eval(node->lhs);
+    case NodeKind::ND_MOD:
+      return eval(node->lhs) % eval(node->rhs);
+    case NodeKind::ND_BITAND:
+      return eval(node->lhs) & eval(node->rhs);
+    case NodeKind::ND_BITOR:
+      return eval(node->lhs) | eval(node->rhs);
+    case NodeKind::ND_BITXOR:
+      return eval(node->lhs) ^ eval(node->rhs);
+    case NodeKind::ND_SHL:
+      return eval(node->lhs) << eval(node->rhs);
+    case NodeKind::ND_SHR:
+      return eval(node->lhs) >> eval(node->rhs);
+    case NodeKind::ND_EQ:
+      return eval(node->lhs) == eval(node->rhs);
+    case NodeKind::ND_NE:
+      return eval(node->lhs) != eval(node->rhs);
+    case NodeKind::ND_LT:
+      return eval(node->lhs) < eval(node->rhs);
+    case NodeKind::ND_LE:
+      return eval(node->lhs) <= eval(node->rhs);
+    case NodeKind::ND_COND:
+      return eval(node->cond) ? eval(node->then) : eval(node->els);
+    case NodeKind::ND_COMMA:
+      return eval(node->rhs);
+    case NodeKind::ND_NOT:
+      return !eval(node->lhs);
+    case NodeKind::ND_BITNOT:
+      return ~eval(node->lhs);
+    case NodeKind::ND_LOGAND:
+      return eval(node->lhs) && eval(node->rhs);
+    case NodeKind::ND_LOGOR:
+      return eval(node->lhs) || eval(node->rhs);
+    case NodeKind::ND_CAST:
+      if (node->ty->is_integer()) {
+        switch (node->ty->size) {
+          case 1:
+            return (uint8_t)eval(node->lhs);
+          case 2:
+            return (uint16_t)eval(node->lhs);
+          case 4:
+            return (uint32_t)eval(node->lhs);
+        }
+      }
+      return eval(node->lhs);
+    case NodeKind::ND_NUM:
+      return node->val;
+  }
+
+  error_tok(node->tok, "not a compile-time constant");
+}
+
+static int64_t const_expr(Token **rest, Token *tok) {
+  Node *node = conditional(rest, tok);
+  return eval(node);
 }
 
 // Convert `A op= B` to `tmp = &A, *tmp = *tmp op B`
