@@ -72,6 +72,10 @@ static Node *labels = nullptr;
 static char *brk_label = nullptr;
 static char *cont_label = nullptr;
 
+// Points to a node representing a switch if we are parsing
+// a switch statement. Otherwise, NULL.
+static Node *current_switch = nullptr;
+
 static bool is_typename(Token *tok);
 static Type *declspec(Token **rest, Token *tok, VarAttr *attr);
 static Type *enum_specifier(Token **rest, Token *tok);
@@ -565,6 +569,9 @@ static bool is_typename(Token *tok) {
 
 // stmt = "return" expr ";"
 //      | "if" "(" expr ")" stmt ("else" stmt)?
+//      | "switch" "(" expr ")" stmt
+//      | "case" num ":" stmt
+//      | "default" ":" stmt
 //      | "for" "(" expr-stmt expr? ";" expr? ")" stmt
 //      | "while" "(" expr ")" stmt
 //      | "goto" ident ";"
@@ -592,6 +599,50 @@ static Node *stmt(Token **rest, Token *tok) {
     node->then = stmt(&tok, tok);
     if (tok->equal("else")) node->els = stmt(&tok, tok->next);
     *rest = tok;
+    return node;
+  }
+
+  if (tok->equal("switch")) {
+    Node *node = new_node(NodeKind::ND_SWITCH, tok);
+    tok = tok->next->skip("(");
+    node->cond = expr(&tok, tok);
+    tok = tok->skip(")");
+
+    Node *sw = current_switch;
+    current_switch = node;
+
+    char *brk = brk_label;
+    brk_label = node->brk_label = new_unique_name();
+
+    node->then = stmt(rest, tok);
+
+    current_switch = sw;
+    brk_label = brk;
+    return node;
+  }
+
+  if (tok->equal("case")) {
+    if (!current_switch) error_tok(tok, "stray case");
+    int val = tok->next->get_number();
+
+    Node *node = new_node(NodeKind::ND_CASE, tok);
+    tok = tok->next->next->skip(":");
+    node->label = new_unique_name();
+    node->lhs = stmt(rest, tok);
+    node->val = val;
+    node->case_next = current_switch->case_next;
+    current_switch->case_next = node;
+    return node;
+  }
+
+  if (tok->equal("default")) {
+    if (!current_switch) error_tok(tok, "stray default");
+
+    Node *node = new_node(NodeKind::ND_CASE, tok);
+    tok = tok->next->skip(":");
+    node->label = new_unique_name();
+    node->lhs = stmt(rest, tok);
+    current_switch->default_case = node;
     return node;
   }
 

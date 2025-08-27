@@ -54,6 +54,8 @@ enum class NodeKind : int {
   ND_RETURN,     // "return"
   ND_IF,         // "if"
   ND_FOR,        // "for" or "while"
+  ND_SWITCH,     // "switch"
+  ND_CASE,       // "case"
   ND_BLOCK,      // { ... }
   ND_GOTO,       // "goto"
   ND_LABEL,      // Labeled statement
@@ -173,8 +175,15 @@ class Node {
   char *unique_label = nullptr;
   Node *goto_next = nullptr;
 
-  Obj *var = nullptr;  // Used if kind == ND_VAR
-  int64_t val = 0;     // Used if kind == ND_NUM
+  // Switch-cases
+  Node *case_next = nullptr;
+  Node *default_case = nullptr;
+
+  // Variable
+  Obj *var = nullptr;
+
+  // Numeric literal
+  int64_t val = 0;
 
   Node() = default;
 };
