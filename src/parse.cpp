@@ -754,6 +754,14 @@ static void initializer2(Token **rest, Token *tok, Initializer *init) {
     return;
   }
 
+  if (tok->equal("{")) {
+    // An initializer for a scalar variable can be surrounded by
+    // braces. E.g. `int x = {3};`. Handle that case.
+    initializer2(&tok, tok->next, init);
+    *rest = tok->skip("}");
+    return;
+  }
+
   init->expr = assign(rest, tok);
 }
 
