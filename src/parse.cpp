@@ -585,7 +585,7 @@ static void initializer2(Token **rest, Token *tok, Initializer *init) {
   if (init->ty->kind == TypeKind::TY_ARRAY) {
     tok = tok->skip("{");
 
-    for (int i = 0; i < init->ty->array_len; i++) {
+    for (int i = 0; i < init->ty->array_len && !tok->equal("}"); i++) {
       if (i > 0) tok = tok->skip(",");
       initializer2(&tok, tok, init->children[i]);
     }
@@ -621,9 +621,10 @@ static Node *create_lvar_init(Initializer *init, Type *ty, InitDesg *desg, Token
     return node;
   }
 
+  if (!init->expr) return new_node(NodeKind::ND_NULL_EXPR, tok);
+
   Node *lhs = init_desg_expr(desg, tok);
-  Node *rhs = init->expr;
-  return new_binary(NodeKind::ND_ASSIGN, lhs, rhs, tok);
+  return new_binary(NodeKind::ND_ASSIGN, lhs, init->expr, tok);
 }
 
 // A variable definition with an initializer is a shorthand notation
@@ -638,8 +639,17 @@ static Node *create_lvar_init(Initializer *init, Type *ty, InitDesg *desg, Token
 //   x[1][1] = 9;
 static Node *lvar_initializer(Token **rest, Token *tok, Obj *var) {
   Initializer *init = initializer(rest, tok, var->ty);
-  InitDesg desg = {NULL, 0, var};
-  return create_lvar_init(init, var->ty, &desg, tok);
+  InitDesg desg = {nullptr, 0, var};
+
+  // If a partial initializer list is given, the standard requires
+  // that unspecified elements are set to 0. Here, we simply
+  // zero-initialize the entire memory region of a variable before
+  // initializing it with user-supplied values.
+  Node *lhs = new_node(NodeKind::ND_MEMZERO, tok);
+  lhs->var = var;
+
+  Node *rhs = create_lvar_init(init, var->ty, &desg, tok);
+  return new_binary(NodeKind::ND_COMMA, lhs, rhs, tok);
 }
 
 // Returns true if a given token represents a type.
