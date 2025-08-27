@@ -265,6 +265,7 @@ class Member {
   Type *ty = nullptr;
   Token *tok = nullptr;  // for error message
   Token *name = nullptr;
+  int idx = 0;
   int offset = 0;
 
   Member() = default;

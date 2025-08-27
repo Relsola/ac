@@ -74,6 +74,7 @@ struct Initializer {
 struct InitDesg {
   InitDesg *next = nullptr;
   int idx = 0;
+  Member *member = nullptr;
   Obj *var = nullptr;
 };
 
@@ -232,6 +233,19 @@ static Initializer *new_initializer(Type *ty, bool is_flexible) {
 
     init->children = new Initializer *[ty->array_len]();
     for (int i = 0; i < ty->array_len; i++) init->children[i] = new_initializer(ty->base, false);
+    return init;
+  }
+
+  if (ty->kind == TypeKind::TY_STRUCT) {
+    // Count the number of struct members.
+    int len = 0;
+    for (Member *mem = ty->members; mem; mem = mem->next) len++;
+
+    init->children = new Initializer *();
+
+    for (Member *mem = ty->members; mem; mem = mem->next)
+      init->children[mem->idx] = new_initializer(mem->ty, false);
+    return init;
   }
 
   return init;
@@ -638,7 +652,26 @@ static void array_initializer(Token **rest, Token *tok, Initializer *init) {
   }
 }
 
-// initializer = string-initializer | array-initializer | assign
+// struct-initializer = "{" initializer ("," initializer)* "}"
+static void struct_initializer(Token **rest, Token *tok, Initializer *init) {
+  tok = tok->skip("{");
+
+  Member *mem = init->ty->members;
+
+  while (!tok->consume(rest, "}")) {
+    if (mem != init->ty->members) tok = tok->skip(",");
+
+    if (mem) {
+      initializer2(&tok, tok, init->children[mem->idx]);
+      mem = mem->next;
+    } else {
+      tok = skip_excess_element(tok);
+    }
+  }
+}
+
+// initializer = string-initializer | array-initializer
+//             | struct-initializer | assign
 static void initializer2(Token **rest, Token *tok, Initializer *init) {
   if (init->ty->kind == TypeKind::TY_ARRAY && tok->kind == TokenKind::TK_STR) {
     string_initializer(rest, tok, init);
@@ -647,6 +680,11 @@ static void initializer2(Token **rest, Token *tok, Initializer *init) {
 
   if (init->ty->kind == TypeKind::TY_ARRAY) {
     array_initializer(rest, tok, init);
+    return;
+  }
+
+  if (init->ty->kind == TypeKind::TY_STRUCT) {
+    struct_initializer(rest, tok, init);
     return;
   }
 
@@ -663,6 +701,12 @@ static Initializer *initializer(Token **rest, Token *tok, Type *ty, Type **new_t
 static Node *init_desg_expr(InitDesg *desg, Token *tok) {
   if (desg->var) return new_var_node(desg->var, tok);
 
+  if (desg->member) {
+    Node *node = new_unary(NodeKind::ND_MEMBER, init_desg_expr(desg->next, tok), tok);
+    node->member = desg->member;
+    return node;
+  }
+
   Node *lhs = init_desg_expr(desg->next, tok);
   Node *rhs = new_num(desg->idx, tok);
   return new_unary(NodeKind::ND_DEREF, new_add(lhs, rhs, tok), tok);
@@ -674,6 +718,17 @@ static Node *create_lvar_init(Initializer *init, Type *ty, InitDesg *desg, Token
     for (int i = 0; i < ty->array_len; i++) {
       InitDesg desg2 = {desg, i};
       Node *rhs = create_lvar_init(init->children[i], ty->base, &desg2, tok);
+      node = new_binary(NodeKind::ND_COMMA, node, rhs, tok);
+    }
+    return node;
+  }
+
+  if (ty->kind == TypeKind::TY_STRUCT) {
+    Node *node = new_node(NodeKind::ND_NULL_EXPR, tok);
+
+    for (Member *mem = ty->members; mem; mem = mem->next) {
+      InitDesg desg2 = {desg, 0, mem};
+      Node *rhs = create_lvar_init(init->children[mem->idx], mem->ty, &desg2, tok);
       node = new_binary(NodeKind::ND_COMMA, node, rhs, tok);
     }
     return node;
@@ -697,7 +752,7 @@ static Node *create_lvar_init(Initializer *init, Type *ty, InitDesg *desg, Token
 //   x[1][1] = 9;
 static Node *lvar_initializer(Token **rest, Token *tok, Obj *var) {
   Initializer *init = initializer(rest, tok, var->ty, &var->ty);
-  InitDesg desg = {nullptr, 0, var};
+  InitDesg desg = {nullptr, 0, nullptr, var};
 
   // If a partial initializer list is given, the standard requires
   // that unspecified elements are set to 0. Here, we simply
@@ -1384,17 +1439,20 @@ static Node *unary(Token **rest, Token *tok) {
 static void struct_members(Token **rest, Token *tok, Type *ty) {
   Member head;
   Member *cur = &head;
+  int idx = 0;
 
   while (!tok->equal("}")) {
     Type *basety = declspec(&tok, tok, nullptr);
-    int i = 0;
+    bool first = true;
 
     while (!tok->consume(&tok, ";")) {
-      if (i++) tok = tok->skip(",");
+      if (!first) tok = tok->skip(",");
+      first = false;
 
       Member *mem = new Member;
       mem->ty = declarator(&tok, tok, basety);
       mem->name = mem->ty->name;
+      mem->idx = idx++;
       cur = cur->next = mem;
     }
   }
