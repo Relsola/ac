@@ -42,14 +42,15 @@ struct Scope {
 
   // C has two block scopes; one is for variables/typedefs and
   // the other is for struct/union/enum tags.
-  VarScope *vars;
-  TagScope *tags;
+  VarScope *vars = nullptr;
+  TagScope *tags = nullptr;
 };
 
 // Variable attributes such as typedef or extern.
 struct VarAttr {
-  bool is_typedef;
-  bool is_static;
+  bool is_typedef = false;
+  bool is_static = false;
+  bool is_extern = false;
 };
 
 // This struct represents a variable initializer. Since initializers
@@ -281,6 +282,7 @@ static Obj *new_lvar(char *name, Type *ty) {
 static Obj *new_gvar(char *name, Type *ty) {
   Obj *var = new_var(name, ty);
   var->next = globals;
+  var->is_definition = true;
   globals = var;
   return var;
 }
@@ -320,7 +322,7 @@ static void push_tag_scope(Token *tok, Type *ty) {
 }
 
 // declspec = ("void" | "_Bool" | "char" | "short" | "int" | "long"
-//             | "typedef" | "static"
+//             | "typedef" | "static" | "extern"
 //             | struct-decl | union-decl | typedef-name
 //             | enum-specifier)+
 //
@@ -355,17 +357,18 @@ static Type *declspec(Token **rest, Token *tok, VarAttr *attr) {
 
   while (is_typename(tok)) {
     // Handle storage class specifiers.
-    if (tok->equal("typedef") || tok->equal("static")) {
+    if (tok->equal("typedef") || tok->equal("static") || tok->equal("extern")) {
       if (!attr) error_tok(tok, "storage class specifier is not allowed in this context");
 
       if (tok->equal("typedef"))
         attr->is_typedef = true;
-      else
+      else if (tok->equal("static"))
         attr->is_static = true;
+      else
+        attr->is_extern = true;
 
-      if (attr->is_typedef + attr->is_static > 1)
-        error_tok(tok, "typedef and static may not be used together");
-
+      if (attr->is_typedef && attr->is_static + attr->is_extern > 1)
+        error_tok(tok, "typedef may not be used together with static or extern");
       tok = tok->next;
       continue;
     }
@@ -980,6 +983,7 @@ static bool is_typename(Token *tok) {
       "enum",
       "typedef",
       "static",
+      "extern",
   };
 
   for (int i = 0; i < sizeof(kw) / sizeof(*kw); i++)
@@ -2035,7 +2039,7 @@ static Token *function(Token *tok, Type *basety, VarAttr *attr) {
   return tok;
 }
 
-static Token *global_variable(Token *tok, Type *basety) {
+static Token *global_variable(Token *tok, Type *basety, VarAttr *attr) {
   bool first = true;
 
   while (!tok->consume(&tok, ";")) {
@@ -2045,6 +2049,8 @@ static Token *global_variable(Token *tok, Type *basety) {
 
     Type *ty = declarator(&tok, tok, basety);
     Obj *var = new_gvar(get_ident(ty->name), ty);
+    var->is_definition = !attr->is_extern;
+
     if (tok->equal("=")) gvar_initializer(&tok, tok->next, var);
   }
 
@@ -2082,7 +2088,7 @@ Obj *parse(Token *tok) {
     }
 
     // Global variable
-    tok = global_variable(tok, basety);
+    tok = global_variable(tok, basety, &attr);
   }
 
   return globals;

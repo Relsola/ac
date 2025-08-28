@@ -452,7 +452,7 @@ static void assign_lvar_offsets(Obj *prog) {
 
 static void emit_data(Obj *prog) {
   for (Obj *var = prog; var; var = var->next) {
-    if (var->is_function) continue;
+    if (var->is_function || !var->is_definition) continue;
 
     println("  .globl %s", var->name);
     println("  .align %d", var->ty->align);
