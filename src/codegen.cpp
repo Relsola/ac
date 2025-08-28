@@ -455,6 +455,7 @@ static void emit_data(Obj *prog) {
     if (var->is_function) continue;
 
     println("  .globl %s", var->name);
+    println("  .align %d", var->ty->align);
 
     if (var->init_data) {
       println("  .data");
