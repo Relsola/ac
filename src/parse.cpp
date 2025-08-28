@@ -440,9 +440,14 @@ static Type *declspec(Token **rest, Token *tok, VarAttr *attr) {
   return ty;
 }
 
-// func-params = (param ("," param)*)? ")"
+// func-params = ("void" | param ("," param)*)? ")"
 // param       = declspec declarator
 static Type *func_params(Token **rest, Token *tok, Type *ty) {
+  if (tok->equal("void") && tok->next->equal(")")) {
+    *rest = tok->next->next;
+    return Type::func_type(ty);
+  }
+
   Type head;
   Type *cur = &head;
 
