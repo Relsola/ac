@@ -1,7 +1,6 @@
 #include "test.h"
 
 int main() {
-  // clang-format off
   ASSERT(1, sizeof(char));
   ASSERT(2, sizeof(short));
   ASSERT(2, sizeof(short int));
@@ -30,11 +29,12 @@ int main() {
   ASSERT(8, sizeof((long)-10 / 5));
 
   ASSERT(1, ({ char i; sizeof(++i); }));
-	ASSERT(1, ({ char i; sizeof(i++); }));
+  ASSERT(1, ({ char i; sizeof(i++); }));
 
   ASSERT(8, sizeof(int(*)[10]));
   ASSERT(8, sizeof(int(*)[][10]));
-  // clang-format on
+
+  ASSERT(4, sizeof(struct { int x, y[]; }));
 
   printf("OK\n");
   return 0;
