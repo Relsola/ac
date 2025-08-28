@@ -123,6 +123,7 @@ class Obj {
   char *name = nullptr;   // Variable name
   Type *ty = nullptr;     // Type
   bool is_local = false;  // local or global/function
+  int align = 0;          // alignment
 
   // Local variable
   int offset = 0;
@@ -282,6 +283,7 @@ class Member {
   Token *tok = nullptr;  // for error message
   Token *name = nullptr;
   int idx = 0;
+  int align = 0;
   int offset = 0;
 
   Member() = default;
