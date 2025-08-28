@@ -255,6 +255,7 @@ class Type {
 
   // Struct
   Member *members = nullptr;
+  bool is_flexible = false;
 
   // Function type
   Type *return_ty = nullptr;
