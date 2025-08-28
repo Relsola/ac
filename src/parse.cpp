@@ -1942,6 +1942,7 @@ static Node *funcall(Token **rest, Token *tok) {
 //         | "sizeof" "(" type-name ")"
 //         | "sizeof" unary
 //         | "_Alignof" "(" type-name ")"
+//         | "_Alignof" unary
 //         | ident func-args?
 //         | str
 //         | num
@@ -1974,11 +1975,16 @@ static Node *primary(Token **rest, Token *tok) {
     return new_num(node->ty->size, tok);
   }
 
-  if (tok->equal("_Alignof")) {
-    tok = tok->next->skip("(");
-    Type *ty = type_name(&tok, tok);
+  if (tok->equal("_Alignof") && tok->next->equal("(") && is_typename(tok->next->next)) {
+    Type *ty = type_name(&tok, tok->next->next);
     *rest = tok->skip(")");
     return new_num(ty->align, tok);
+  }
+
+  if (tok->equal("_Alignof")) {
+    Node *node = unary(rest, tok->next);
+    add_type(node);
+    return new_num(node->ty->align, tok);
   }
 
   if (tok->kind == TokenKind::TK_IDENT) {
