@@ -262,6 +262,7 @@ class Type {
   // Function type
   Type *return_ty = nullptr;
   Type *params = nullptr;
+  bool is_variadic = false;
   Type *next = nullptr;
 
   Type() = default;
