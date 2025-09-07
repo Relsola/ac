@@ -1,9 +1,9 @@
 #include "test.h"
 
 int g1, g2[4];
+static int g3 = 3;
 
 int main() {
-  // clang-format off
   ASSERT(3, ({ int a; a=3; a; }));
   ASSERT(3, ({ int a=3; a; }));
   ASSERT(8, ({ int a=3; int z=5; a+z; }));
@@ -64,7 +64,8 @@ int main() {
   ASSERT(4, ({ char x[3]; char (*y)[3]=x; y[0][0]=4; y[0][0]; }));
 
   { void *x; }
-  // clang-format on
+
+  ASSERT(3, g3);
 
   printf("OK\n");
   return 0;
