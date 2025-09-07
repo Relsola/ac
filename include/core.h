@@ -142,6 +142,7 @@ class Obj {
   Obj *params = nullptr;
   Node *body = nullptr;
   Obj *locals = nullptr;
+  Obj *va_area = nullptr;
   int stack_size = 0;
 
   Obj() = default;

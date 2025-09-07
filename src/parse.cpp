@@ -2141,6 +2141,7 @@ static Token *function(Token *tok, Type *basety, VarAttr *attr) {
   enter_scope();
   create_param_lvars(ty->params);
   fn->params = locals;
+  if (ty->is_variadic) fn->va_area = new_lvar("__va_area__", Type::array_of(Type::ty_char, 136));
 
   tok = tok->skip("{");
   fn->body = compound_stmt(&tok, tok);
