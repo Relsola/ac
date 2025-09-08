@@ -89,10 +89,10 @@ static int read_punct(char *p) {
 
 static bool is_keyword(Token *tok) {
   static char *kw[] = {
-      "return", "if",      "else",   "for",      "while",    "void",     "short",
-      "int",    "long",    "char",   "sizeof",   "struct",   "union",    "typedef",
-      "_Bool",  "enum",    "static", "goto",     "break",    "continue", "switch",
-      "case",   "default", "extern", "_Alignof", "_Alignas", "do",       "signed",
+      "return",   "if",       "else",   "for",      "while",    "void",    "short",   "int",
+      "long",     "char",     "sizeof", "struct",   "union",    "typedef", "_Bool",   "enum",
+      "static",   "goto",     "break",  "continue", "switch",   "case",    "default", "extern",
+      "_Alignof", "_Alignas", "do",     "signed",   "unsigned",
   };
 
   for (int i = 0; i < sizeof(kw) / sizeof(*kw); i++)
@@ -219,7 +219,7 @@ static Token *read_int_literal(char *start) {
     base = 8;
   }
 
-  long val = strtoul(p, &p, base);
+  int64_t val = strtoul(p, &p, base);
   if (isalnum(*p)) error_at(p, "invalid digit");
 
   Token *tok = new Token(TokenKind::TK_NUM, start, p);

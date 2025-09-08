@@ -223,6 +223,11 @@ class Type {
   static Type *ty_int;
   static Type *ty_long;
 
+  static Type *ty_uchar;
+  static Type *ty_ushort;
+  static Type *ty_uint;
+  static Type *ty_ulong;
+
   static Type *pointer_to(Type *base);
 
   static Type *func_type(Type *return_ty);
@@ -237,8 +242,9 @@ class Type {
 
   TypeKind kind = TypeKind::INVALID;
 
-  int size = 0;   // sizeof() value
-  int align = 0;  // alignment
+  int size = 0;      // sizeof() value
+  int align = 0;     // alignment
+  bool is_unsigned;  // unsigned or signed
 
   // Pointer-to or array-of type. We intentionally use the same member
   // to represent pointer/array duality in C.
@@ -271,6 +277,9 @@ class Type {
   Type(TypeKind kind) : kind(kind){};
 
   Type(TypeKind kind, int size, int align) : kind(kind), size(size), align(align){};
+
+  Type(TypeKind kind, int size, int align, bool is_unsigned)
+      : kind(kind), size(size), align(align), is_unsigned(is_unsigned){};
 
   bool is_integer() {
     TypeKind k = this->kind;

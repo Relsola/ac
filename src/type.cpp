@@ -8,6 +8,11 @@ Type *Type::ty_short = new Type(TypeKind::TY_SHORT, 2, 2);
 Type *Type::ty_int = new Type(TypeKind::TY_INT, 4, 4);
 Type *Type::ty_long = new Type(TypeKind::TY_LONG, 8, 8);
 
+Type *Type::ty_uchar = new Type(TypeKind::TY_CHAR, 1, 1, true);
+Type *Type::ty_ushort = new Type(TypeKind::TY_SHORT, 2, 2, true);
+Type *Type::ty_uint = new Type(TypeKind::TY_INT, 4, 4, true);
+Type *Type::ty_ulong = new Type(TypeKind::TY_LONG, 8, 8, true);
+
 Type *Type::copy_type(Type *ty) {
   Type *ret = new Type();
   *ret = *ty;
@@ -39,8 +44,15 @@ Type *Type::struct_type(void) { return new Type(TypeKind::TY_STRUCT, 0, 1); }
 
 static Type *get_common_type(Type *ty1, Type *ty2) {
   if (ty1->base) return Type::pointer_to(ty1->base);
-  if (ty1->size == 8 || ty2->size == 8) return Type::ty_long;
-  return Type::ty_int;
+
+  if (ty1->size < 4) ty1 = Type::ty_int;
+  if (ty2->size < 4) ty2 = Type::ty_int;
+
+  if (ty1->size != ty2->size) return (ty1->size < ty2->size) ? ty2 : ty1;
+
+  if (ty2->is_unsigned) return ty2;
+
+  return ty1;
 }
 
 // For many binary operators, we implicitly promote operands so that
