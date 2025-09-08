@@ -25,8 +25,8 @@ struct VarScope {
   char *name = nullptr;
   Obj *var = nullptr;
   Type *type_def = nullptr;
-  Type *enum_ty;
-  int enum_val;
+  Type *enum_ty = nullptr;
+  int enum_val = 0;
 };
 
 // Scope for struct, union or enum tags
@@ -2120,6 +2120,7 @@ static Node *primary(Token **rest, Token *tok) {
 
   if (tok->kind == TokenKind::TK_NUM) {
     Node *node = new_num(tok->val, tok);
+    node->ty = tok->ty;
     *rest = tok->next;
     return node;
   }

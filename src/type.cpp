@@ -84,12 +84,16 @@ void add_type(Node *node) {
 
   switch (node->kind) {
     case NodeKind::ND_NUM:
-      node->ty = (node->val == (int)node->val) ? Type::ty_int : Type::ty_long;
+      node->ty = Type::ty_int;
       return;
     case NodeKind::ND_ADD:
     case NodeKind::ND_SUB:
     case NodeKind::ND_MUL:
     case NodeKind::ND_DIV:
+    case NodeKind::ND_MOD:
+    case NodeKind::ND_BITAND:
+    case NodeKind::ND_BITOR:
+    case NodeKind::ND_BITXOR:
       usual_arith_conv(&node->lhs, &node->rhs);
       node->ty = node->lhs->ty;
       return;
@@ -109,10 +113,6 @@ void add_type(Node *node) {
     case NodeKind::ND_NE:
     case NodeKind::ND_LT:
     case NodeKind::ND_LE:
-    case NodeKind::ND_MOD:
-    case NodeKind::ND_BITAND:
-    case NodeKind::ND_BITOR:
-    case NodeKind::ND_BITXOR:
       usual_arith_conv(&node->lhs, &node->rhs);
       node->ty = Type::ty_int;
       return;

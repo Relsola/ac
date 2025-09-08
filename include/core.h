@@ -99,7 +99,7 @@ class Token {
   int val = 0;                         // If kind is TK_NUM, its value
   char *loc = nullptr;                 // Token location
   int len = 0;                         // Token length
-  Type *ty = nullptr;                  // Used if TK_STR
+  Type *ty = nullptr;                  // Used if TK_NUM or TK_STR
   char *str = nullptr;                 // String literal contents including terminating '\0'
 
   int line_no = 0;  // Line number
@@ -242,9 +242,9 @@ class Type {
 
   TypeKind kind = TypeKind::INVALID;
 
-  int size = 0;      // sizeof() value
-  int align = 0;     // alignment
-  bool is_unsigned;  // unsigned or signed
+  int size = 0;              // sizeof() value
+  int align = 0;             // alignment
+  bool is_unsigned = false;  // unsigned or signed
 
   // Pointer-to or array-of type. We intentionally use the same member
   // to represent pointer/array duality in C.
