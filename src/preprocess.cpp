@@ -3,7 +3,9 @@
 // `#if` can be nested, so we use a stack to manage nested `#if`s.
 struct CondIncl {
   CondIncl *next = nullptr;
+  enum { IN_THEN, IN_ELSE } ctx = IN_THEN;
   Token *tok = nullptr;
+  bool included = false;
 };
 
 static CondIncl *cond_incl;
@@ -46,16 +48,28 @@ static Token *append(Token *tok1, Token *tok2) {
   return head.next;
 }
 
-// Skip until next `#endif`.
+static Token *skip_cond_incl2(Token *tok) {
+  while (tok->kind != TokenKind::TK_EOF) {
+    if (is_hash(tok) && tok->next->equal("if")) {
+      tok = skip_cond_incl2(tok->next->next);
+      continue;
+    }
+    if (is_hash(tok) && tok->next->equal("endif")) return tok->next->next;
+    tok = tok->next;
+  }
+  return tok;
+}
+
+// Skip until next `#else` or `#endif`.
 // Nested `#if` and `#endif` are skipped.
 static Token *skip_cond_incl(Token *tok) {
   while (tok->kind != TokenKind::TK_EOF) {
     if (is_hash(tok) && tok->next->equal("if")) {
-      tok = skip_cond_incl(tok->next->next);
-      tok = tok->next;
+      tok = skip_cond_incl2(tok->next->next);
       continue;
     }
-    if (is_hash(tok) && tok->next->equal("endif")) break;
+
+    if (is_hash(tok) && (tok->next->equal("else") || tok->next->equal("endif"))) break;
     tok = tok->next;
   }
   return tok;
@@ -88,10 +102,11 @@ static long eval_const_expr(Token **rest, Token *tok) {
   return val;
 }
 
-static CondIncl *push_cond_incl(Token *tok) {
+static CondIncl *push_cond_incl(Token *tok, bool included) {
   CondIncl *ci = new CondIncl();
   ci->next = cond_incl;
   ci->tok = tok;
+  ci->included = included;
   cond_incl = ci;
   return ci;
 }
@@ -133,8 +148,17 @@ static Token *preprocess2(Token *tok) {
 
     if (tok->equal("if")) {
       long val = eval_const_expr(&tok, tok);
-      push_cond_incl(start);
+      push_cond_incl(start, val);
       if (!val) tok = skip_cond_incl(tok);
+      continue;
+    }
+
+    if (tok->equal("else")) {
+      if (!cond_incl || cond_incl->ctx == CondIncl::IN_ELSE) error_tok(start, "stray #else");
+      cond_incl->ctx = CondIncl::IN_ELSE;
+      tok = skip_line(tok->next);
+
+      if (cond_incl->included) tok = skip_cond_incl(tok);
       continue;
     }
 
