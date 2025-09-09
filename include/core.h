@@ -123,6 +123,7 @@ class Obj {
   Obj *next = nullptr;
   char *name = nullptr;   // Variable name
   Type *ty = nullptr;     // Type
+  Token *tok = nullptr;   // representative token
   bool is_local = false;  // local or global/function
   int align = 0;          // alignment
 
@@ -258,6 +259,7 @@ class Type {
 
   // Declaration
   Token *name = nullptr;
+  Token *name_pos = nullptr;
 
   // Array
   int array_len = 0;

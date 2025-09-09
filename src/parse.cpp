@@ -608,10 +608,17 @@ static Type *declarator(Token **rest, Token *tok, Type *ty) {
     return declarator(&tok, start->next, ty);
   }
 
-  if (tok->kind != TokenKind::TK_IDENT) error_tok(tok, "expected a variable name");
+  Token *name = nullptr;
+  Token *name_pos = tok;
 
-  ty = type_suffix(rest, tok->next, ty);
-  ty->name = tok;
+  if (tok->kind == TokenKind::TK_IDENT) {
+    name = tok;
+    tok = tok->next;
+  }
+
+  ty = type_suffix(rest, tok, ty);
+  ty->name = name;
+  ty->name_pos = name_pos;
   return ty;
 }
 
@@ -716,6 +723,7 @@ static Node *declaration(Token **rest, Token *tok, Type *basety, VarAttr *attr) 
     Type *ty = declarator(&tok, tok, basety);
 
     if (ty->kind == TypeKind::TY_VOID) error_tok(tok, "variable declared void");
+    if (!ty->name) error_tok(ty->name_pos, "variable name omitted");
 
     if (attr && attr->is_static) {
       // static local variable
@@ -2163,6 +2171,8 @@ static Token *parse_typedef(Token *tok, Type *basety) {
     first = false;
 
     Type *ty = declarator(&tok, tok, basety);
+    if (!ty->name) error_tok(ty->name_pos, "typedef name omitted");
+
     push_scope(get_ident(ty->name))->type_def = ty;
   }
   return tok;
@@ -2171,6 +2181,8 @@ static Token *parse_typedef(Token *tok, Type *basety) {
 static void create_param_lvars(Type *param) {
   if (param) {
     create_param_lvars(param->next);
+    if (!param->name) error_tok(param->name_pos, "parameter name omitted");
+
     new_lvar(get_ident(param->name), param);
   }
 }
@@ -2197,6 +2209,7 @@ static void resolve_goto_labels(void) {
 
 static Token *function(Token *tok, Type *basety, VarAttr *attr) {
   Type *ty = declarator(&tok, tok, basety);
+  if (!ty->name) error_tok(ty->name_pos, "function name omitted");
 
   Obj *fn = new_gvar(get_ident(ty->name), ty);
   fn->is_function = true;
@@ -2230,6 +2243,8 @@ static Token *global_variable(Token *tok, Type *basety, VarAttr *attr) {
     first = false;
 
     Type *ty = declarator(&tok, tok, basety);
+    if (!ty->name) error_tok(ty->name_pos, "variable name omitted");
+
     Obj *var = new_gvar(get_ident(ty->name), ty);
     var->is_definition = !attr->is_extern;
     var->is_static = attr->is_static;
