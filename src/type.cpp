@@ -49,6 +49,9 @@ Type *Type::struct_type(void) { return new Type(TypeKind::TY_STRUCT, 0, 1); }
 static Type *get_common_type(Type *ty1, Type *ty2) {
   if (ty1->base) return Type::pointer_to(ty1->base);
 
+  if (ty1->kind == TypeKind::TY_FUNC) return Type::pointer_to(ty1);
+  if (ty2->kind == TypeKind::TY_FUNC) return Type::pointer_to(ty2);
+
   if (ty1->kind == TypeKind::TY_DOUBLE || ty2->kind == TypeKind::TY_DOUBLE) return Type::ty_double;
   if (ty1->kind == TypeKind::TY_FLOAT || ty2->kind == TypeKind::TY_FLOAT) return Type::ty_float;
 
