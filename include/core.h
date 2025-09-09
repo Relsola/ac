@@ -195,7 +195,6 @@ class Node {
   Member *member = nullptr;
 
   // Function call
-  char *funcname = nullptr;
   Type *func_ty = nullptr;
   Node *args = nullptr;
 

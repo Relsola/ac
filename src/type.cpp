@@ -153,12 +153,14 @@ void add_type(Node *node) {
     case NodeKind::ND_MEMBER:
       node->ty = node->member->ty;
       return;
-    case NodeKind::ND_ADDR:
-      if (node->lhs->ty->kind == TypeKind::TY_ARRAY)
-        node->ty = Type::pointer_to(node->lhs->ty->base);
+    case NodeKind::ND_ADDR: {
+      Type *ty = node->lhs->ty;
+      if (ty->kind == TypeKind::TY_ARRAY)
+        node->ty = Type::pointer_to(ty->base);
       else
-        node->ty = Type::pointer_to(node->lhs->ty);
+        node->ty = Type::pointer_to(ty);
       return;
+    }
     case NodeKind::ND_DEREF:
       if (!node->lhs->ty->base) error_tok(node->tok, "invalid pointer dereference");
 
