@@ -10,7 +10,7 @@ foreach(test_src ${TEST_SRC})
     # 1. 预处理并用主编译器生成汇编
     add_custom_command(
         OUTPUT ${test_o}
-        COMMAND ${CMAKE_C_COMPILER} -E -P -C ${test_src} | $<TARGET_FILE:ac> -o ${test_o} -
+        COMMAND ${CMAKE_C_COMPILER} -E -P -C ${test_src} | $<TARGET_FILE:ac> -c -o ${test_o} -
         DEPENDS ${test_src} $<TARGET_FILE:ac>
         COMMENT "Generating ${test_o}"
         VERBATIM
@@ -52,6 +52,7 @@ add_custom_target(clear
 )
 
 add_custom_target(test_and_clear
+    COMMAND ${CMAKE_COMMAND} --build ${CMAKE_BINARY_DIR} --target ac
     COMMAND ${CMAKE_COMMAND} --build ${CMAKE_BINARY_DIR} --target all_tests
     COMMAND ${CMAKE_COMMAND} --build ${CMAKE_BINARY_DIR} --target clear
     COMMENT "Run all tests and then clear temporary files"

@@ -1,6 +1,7 @@
 #include "core.h"
 
 static bool opt_S;
+static bool opt_c;
 static bool opt_cc1;
 static bool opt_hash_hash_hash;
 static char *opt_o;
@@ -53,6 +54,11 @@ static void parse_args(int argc, char **argv) {
       continue;
     }
 
+    if (!strcmp(argv[i], "-c")) {
+      opt_c = true;
+      continue;
+    }
+
     if (!strcmp(argv[i], "-cc1-input")) {
       base_file = argv[++i];
       continue;
@@ -77,6 +83,12 @@ static FILE *open_file(char *path) {
   FILE *out = fopen(path, "w");
   if (!out) error("cannot open output file: %s: %s", path, strerror(errno));
   return out;
+}
+
+static bool endswith(char *p, char *q) {
+  int len1 = strlen(p);
+  int len2 = strlen(q);
+  return (len1 >= len2) && !strcmp(p + len1 - len2, q);
 }
 
 // Replace file extension
@@ -156,6 +168,77 @@ static void assemble(char *input, char *output) {
   run_subprocess(cmd);
 }
 
+static char *find_file(char *pattern) {
+  char *path = NULL;
+  glob_t buf = {};
+  glob(pattern, 0, NULL, &buf);
+  if (buf.gl_pathc > 0) path = strdup(buf.gl_pathv[buf.gl_pathc - 1]);
+  globfree(&buf);
+  return path;
+}
+
+// Returns true if a given file exists.
+static bool file_exists(char *path) {
+  struct stat st;
+  return !stat(path, &st);
+}
+
+static char *find_libpath(void) {
+  if (file_exists("/usr/lib/x86_64-linux-gnu/crti.o")) return "/usr/lib/x86_64-linux-gnu";
+  if (file_exists("/usr/lib64/crti.o")) return "/usr/lib64";
+  error("library path is not found");
+}
+
+static char *find_gcc_libpath(void) {
+  char *paths[] = {
+      "/usr/lib/gcc/x86_64-linux-gnu/*/crtbegin.o",
+      "/usr/lib/gcc/x86_64-pc-linux-gnu/*/crtbegin.o",  // For Gentoo
+      "/usr/lib/gcc/x86_64-redhat-linux/*/crtbegin.o",  // For Fedora
+  };
+
+  for (int i = 0; i < sizeof(paths) / sizeof(*paths); i++) {
+    char *path = find_file(paths[i]);
+    if (path) return dirname(path);
+  }
+
+  error("gcc library path is not found");
+}
+
+static void run_linker(std::vector<char *> *inputs, char *output) {
+  std::vector<char *> arr =
+      {"ld", "-o", output, "-m", "elf_x86_64", "-dynamic-linker", "/lib64/ld-linux-x86-64.so.2"};
+
+  char *libpath = find_libpath();
+  char *gcc_libpath = find_gcc_libpath();
+
+  arr.push_back(format("%s/crt1.o", libpath));
+  arr.push_back(format("%s/crti.o", libpath));
+  arr.push_back(format("%s/crtbegin.o", gcc_libpath));
+  arr.push_back(format("-L%s", gcc_libpath));
+  arr.push_back(format("-L%s", libpath));
+  arr.push_back(format("-L%s/..", libpath));
+  arr.push_back("-L/usr/lib64");
+  arr.push_back("-L/lib64");
+  arr.push_back("-L/usr/lib/x86_64-linux-gnu");
+  arr.push_back("-L/usr/lib/x86_64-pc-linux-gnu");
+  arr.push_back("-L/usr/lib/x86_64-redhat-linux");
+  arr.push_back("-L/usr/lib");
+  arr.push_back("-L/lib");
+
+  for (auto &item : *inputs) arr.push_back(item);
+
+  arr.push_back("-lc");
+  arr.push_back("-lgcc");
+  arr.push_back("--as-needed");
+  arr.push_back("-lgcc_s");
+  arr.push_back("--no-as-needed");
+  arr.push_back(format("%s/crtend.o", gcc_libpath));
+  arr.push_back(format("%s/crtn.o", libpath));
+  arr.push_back(nullptr);
+
+  run_subprocess(arr.data());
+}
+
 int main(int argc, char **argv) {
   atexit(cleanup);
   parse_args(argc, argv);
@@ -165,7 +248,10 @@ int main(int argc, char **argv) {
     return 0;
   }
 
-  if (input_paths.size() > 1 && opt_o) error("cannot specify '-o' with multiple files");
+  if (input_paths.size() > 1 && opt_o && (opt_c || opt_S))
+    error("cannot specify '-o' with '-c' or '-S' with multiple files");
+
+  std::vector<char *> ld_args = {};
 
   for (auto &input : input_paths) {
     char *output;
@@ -176,17 +262,44 @@ int main(int argc, char **argv) {
     else
       output = replace_extn(input, ".o");
 
-    // If -S is given, assembly text is the final output.
+    // Handle .o
+    if (endswith(input, ".o")) {
+      ld_args.push_back(input);
+      continue;
+    }
+
+    // Handle .s
+    if (endswith(input, ".s")) {
+      if (!opt_S) assemble(input, output);
+      continue;
+    }
+
+    // Handle .c
+    if (!endswith(input, ".c") && strcmp(input, "-")) error("unknown file extension: %s", input);
+
+    // Just compile
     if (opt_S) {
       run_cc1(argc, argv, input, output);
       continue;
     }
 
-    // Otherwise, run the assembler to assemble our output.
-    char *tmpfile = create_tmpfile();
-    run_cc1(argc, argv, input, tmpfile);
-    assemble(tmpfile, output);
+    // Compile and assemble
+    if (opt_c) {
+      char *tmp = create_tmpfile();
+      run_cc1(argc, argv, input, tmp);
+      assemble(tmp, output);
+      continue;
+    }
+
+    // Compile, assemble and link
+    char *tmp1 = create_tmpfile();
+    char *tmp2 = create_tmpfile();
+    run_cc1(argc, argv, input, tmp1);
+    assemble(tmp1, tmp2);
+    ld_args.push_back(tmp2);
+    continue;
   }
 
+  if (ld_args.size() > 0) run_linker(&ld_args, opt_o ? opt_o : (char *)"a.out");
   return 0;
 }
