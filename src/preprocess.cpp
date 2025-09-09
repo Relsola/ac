@@ -1,12 +1,9 @@
 #include "core.h"
 
 // `#if` can be nested, so we use a stack to manage nested `#if`s.
-class CondIncl {
- public:
+struct CondIncl {
   CondIncl *next = nullptr;
   Token *tok = nullptr;
-
-  CondIncl() = default;
 };
 
 static CondIncl *cond_incl;
@@ -50,9 +47,15 @@ static Token *append(Token *tok1, Token *tok2) {
 }
 
 // Skip until next `#endif`.
+// Nested `#if` and `#endif` are skipped.
 static Token *skip_cond_incl(Token *tok) {
   while (tok->kind != TokenKind::TK_EOF) {
-    if (is_hash(tok) && tok->next->equal("endif")) return tok;
+    if (is_hash(tok) && tok->next->equal("if")) {
+      tok = skip_cond_incl(tok->next->next);
+      tok = tok->next;
+      continue;
+    }
+    if (is_hash(tok) && tok->next->equal("endif")) break;
     tok = tok->next;
   }
   return tok;
