@@ -366,9 +366,11 @@ static Type *declspec(Token **rest, Token *tok, VarAttr *attr) {
     SHORT = 1 << 6,
     INT = 1 << 8,
     LONG = 1 << 10,
-    OTHER = 1 << 12,
-    SIGNED = 1 << 13,
-    UNSIGNED = 1 << 14,
+    FLOAT = 1 << 12,
+    DOUBLE = 1 << 14,
+    OTHER = 1 << 16,
+    SIGNED = 1 << 17,
+    UNSIGNED = 1 << 18,
   };
 
   Type *ty = Type::ty_int;
@@ -444,6 +446,10 @@ static Type *declspec(Token **rest, Token *tok, VarAttr *attr) {
       counter += INT;
     else if (tok->equal("long"))
       counter += LONG;
+    else if (tok->equal("float"))
+      counter += FLOAT;
+    else if (tok->equal("double"))
+      counter += DOUBLE;
     else if (tok->equal("signed"))
       counter |= SIGNED;
     else if (tok->equal("unsigned"))
@@ -499,6 +505,12 @@ static Type *declspec(Token **rest, Token *tok, VarAttr *attr) {
       case UNSIGNED + LONG + LONG:
       case UNSIGNED + LONG + LONG + INT:
         ty = Type::ty_ulong;
+        break;
+      case FLOAT:
+        ty = Type::ty_float;
+        break;
+      case DOUBLE:
+        ty = Type::ty_double;
         break;
       default:
         error_tok(tok, "invalid type");
@@ -1084,10 +1096,10 @@ static void gvar_initializer(Token **rest, Token *tok, Obj *var) {
 // Returns true if a given token represents a type.
 static bool is_typename(Token *tok) {
   static char *kw[] = {
-      "void",     "_Bool",    "char",       "short",        "int",       "long",
-      "struct",   "union",    "enum",       "typedef",      "static",    "extern",
-      "_Alignas", "signed",   "unsigned",   "const",        "volatile",  "auto",
-      "register", "restrict", "__restrict", "__restrict__", "_Noreturn",
+      "void",         "_Bool",     "char",     "short",  "int",      "long",     "struct",
+      "union",        "enum",      "typedef",  "static", "extern",   "_Alignas", "signed",
+      "unsigned",     "const",     "volatile", "auto",   "register", "restrict", "__restrict",
+      "__restrict__", "_Noreturn", "float",    "double",
   };
 
   for (int i = 0; i < sizeof(kw) / sizeof(*kw); i++)
