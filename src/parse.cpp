@@ -339,7 +339,9 @@ static void push_tag_scope(Token *tok, Type *ty) {
 //             | "typedef" | "static" | "extern"
 //             | "signed" | "unsigned"
 //             | struct-decl | union-decl | typedef-name
-//             | enum-specifier)+
+//             | enum-specifier
+//             | "const" | "volatile" | "auto" | "register" | "restrict"
+//             | "__restrict" | "__restrict__" | "_Noreturn")+
 //
 // The order of typenames in a type-specifier doesn't matter. For
 // example, `int long static` means the same as `static long int`.
@@ -389,6 +391,13 @@ static Type *declspec(Token **rest, Token *tok, VarAttr *attr) {
       tok = tok->next;
       continue;
     }
+
+    // These keywords are recognized but ignored.
+    if (tok->consume(&tok, "const") || tok->consume(&tok, "volatile") ||
+        tok->consume(&tok, "auto") || tok->consume(&tok, "register") ||
+        tok->consume(&tok, "restrict") || tok->consume(&tok, "__restrict") ||
+        tok->consume(&tok, "__restrict__") || tok->consume(&tok, "_Noreturn"))
+      continue;
 
     if (tok->equal("_Alignas")) {
       if (!attr) error_tok(tok, "_Alignas is not allowed in this context");
@@ -572,8 +581,42 @@ static Type *type_suffix(Token **rest, Token *tok, Type *ty) {
   return ty;
 }
 
-// abstract-declarator = "*"* ("(" abstract-declarator ")")? type-suffix
+// pointers = ("*" ("const" | "volatile" | "restrict")*)*
+static Type *pointers(Token **rest, Token *tok, Type *ty) {
+  while (tok->consume(&tok, "*")) {
+    ty = Type::pointer_to(ty);
+    while (tok->equal("const") || tok->equal("volatile") || tok->equal("restrict") ||
+           tok->equal("__restrict") || tok->equal("__restrict__"))
+      tok = tok->next;
+  }
+  *rest = tok;
+  return ty;
+}
+
+// declarator = pointers ("(" ident ")" | "(" declarator ")" | ident) type-suffix
+static Type *declarator(Token **rest, Token *tok, Type *ty) {
+  ty = pointers(&tok, tok, ty);
+
+  if (tok->equal("(")) {
+    Token *start = tok;
+    Type dummy = {};
+    declarator(&tok, start->next, &dummy);
+    tok = tok->skip(")");
+    ty = type_suffix(rest, tok, ty);
+    return declarator(&tok, start->next, ty);
+  }
+
+  if (tok->kind != TokenKind::TK_IDENT) error_tok(tok, "expected a variable name");
+
+  ty = type_suffix(rest, tok->next, ty);
+  ty->name = tok;
+  return ty;
+}
+
+// abstract-declarator = pointers ("(" abstract-declarator ")")? type-suffix
 static Type *abstract_declarator(Token **rest, Token *tok, Type *ty) {
+  ty = pointers(&tok, tok, ty);
+
   while (tok->equal("*")) {
     ty = Type::pointer_to(ty);
     tok = tok->next;
@@ -595,26 +638,6 @@ static Type *abstract_declarator(Token **rest, Token *tok, Type *ty) {
 static Type *type_name(Token **rest, Token *tok) {
   Type *ty = declspec(&tok, tok, nullptr);
   return abstract_declarator(rest, tok, ty);
-}
-
-// declarator = "*"* ("(" ident ")" | "(" declarator ")" | ident) type-suffix
-static Type *declarator(Token **rest, Token *tok, Type *ty) {
-  while (tok->consume(&tok, "*")) ty = Type::pointer_to(ty);
-
-  if (tok->equal("(")) {
-    Token *start = tok;
-    Type dummy = {};
-    declarator(&tok, start->next, &dummy);
-    tok = tok->skip(")");
-    ty = type_suffix(rest, tok, ty);
-    return declarator(&tok, start->next, ty);
-  }
-
-  if (tok->kind != TokenKind::TK_IDENT) error_tok(tok, "expected a variable name");
-
-  ty = type_suffix(rest, tok->next, ty);
-  ty->name = tok;
-  return ty;
 }
 
 static bool is_end(Token *tok) {
@@ -1051,21 +1074,10 @@ static void gvar_initializer(Token **rest, Token *tok, Obj *var) {
 // Returns true if a given token represents a type.
 static bool is_typename(Token *tok) {
   static char *kw[] = {
-      "void",
-      "_Bool",
-      "char",
-      "short",
-      "int",
-      "long",
-      "struct",
-      "union",
-      "enum",
-      "typedef",
-      "static",
-      "extern",
-      "_Alignas",
-      "signed",
-      "unsigned",
+      "void",     "_Bool",    "char",       "short",        "int",       "long",
+      "struct",   "union",    "enum",       "typedef",      "static",    "extern",
+      "_Alignas", "signed",   "unsigned",   "const",        "volatile",  "auto",
+      "register", "restrict", "__restrict", "__restrict__", "_Noreturn",
   };
 
   for (int i = 0; i < sizeof(kw) / sizeof(*kw); i++)
