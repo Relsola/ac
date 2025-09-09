@@ -125,6 +125,7 @@ static int64_t eval_rval(Node *node, char **label);
 static Node *assign(Token **rest, Token *tok);
 static Node *logor(Token **rest, Token *tok);
 static int64_t const_expr(Token **rest, Token *tok);
+static double eval_double(Node *node);
 static Node *conditional(Token **rest, Token *tok);
 static Node *logand(Token **rest, Token *tok);
 static Node *bit_or(Token **rest, Token *tok);
@@ -1063,6 +1064,16 @@ static Relocation *write_gvar_data(Relocation *cur, Initializer *init, Type *ty,
 
   if (!init->expr) return cur;
 
+  if (ty->kind == TypeKind::TY_FLOAT) {
+    *(float *)(buf + offset) = eval_double(init->expr);
+    return cur;
+  }
+
+  if (ty->kind == TypeKind::TY_DOUBLE) {
+    *(double *)(buf + offset) = eval_double(init->expr);
+    return cur;
+  }
+
   char *label = nullptr;
   uint64_t val = eval(init->expr, &label);
 
@@ -1379,6 +1390,8 @@ static int64_t eval(Node *node) { return eval(node, nullptr); }
 static int64_t eval(Node *node, char **label) {
   add_type(node);
 
+  if (node->ty->is_flonum()) return eval_double(node);
+
   switch (node->kind) {
     case NodeKind::ND_ADD:
       return eval(node->lhs, label) + eval(node->rhs);
@@ -1479,6 +1492,39 @@ static int64_t eval_rval(Node *node, char **label) {
 static int64_t const_expr(Token **rest, Token *tok) {
   Node *node = conditional(rest, tok);
   return eval(node);
+}
+
+static double eval_double(Node *node) {
+  add_type(node);
+
+  if (node->ty->is_integer()) {
+    if (node->ty->is_unsigned) return (unsigned long)eval(node);
+    return eval(node);
+  }
+
+  switch (node->kind) {
+    case NodeKind::ND_ADD:
+      return eval_double(node->lhs) + eval_double(node->rhs);
+    case NodeKind::ND_SUB:
+      return eval_double(node->lhs) - eval_double(node->rhs);
+    case NodeKind::ND_MUL:
+      return eval_double(node->lhs) * eval_double(node->rhs);
+    case NodeKind::ND_DIV:
+      return eval_double(node->lhs) / eval_double(node->rhs);
+    case NodeKind::ND_NEG:
+      return -eval_double(node->lhs);
+    case NodeKind::ND_COND:
+      return eval_double(node->cond) ? eval_double(node->then) : eval_double(node->els);
+    case NodeKind::ND_COMMA:
+      return eval_double(node->rhs);
+    case NodeKind::ND_CAST:
+      if (node->lhs->ty->is_flonum()) return eval_double(node->lhs);
+      return eval(node->lhs);
+    case NodeKind::ND_NUM:
+      return node->fval;
+  }
+
+  error_tok(node->tok, "not a compile-time constant");
 }
 
 // Convert `A op= B` to `tmp = &A, *tmp = *tmp op B`
