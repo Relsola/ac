@@ -340,6 +340,8 @@ void error_at(char *loc, char *fmt, ...);
 
 void error_tok(Token *tok, char *fmt, ...);
 
+void warn_tok(Token *tok, char *fmt, ...);
+
 void convert_keywords(Token *tok);
 
 std::vector<File *> get_input_files();
