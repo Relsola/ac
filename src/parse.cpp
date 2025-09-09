@@ -556,8 +556,10 @@ static Type *func_params(Token **rest, Token *tok, Type *ty) {
   return ty;
 }
 
-// array-dimensions = const-expr? "]" type-suffix
+// array-dimensions = ("static" | "restrict")* const-expr? "]" type-suffix
 static Type *array_dimensions(Token **rest, Token *tok, Type *ty) {
+  while (tok->equal("static") || tok->equal("restrict")) tok = tok->next;
+
   if (tok->equal("]")) {
     ty = type_suffix(rest, tok->next, ty);
     return Type::array_of(ty, -1);
