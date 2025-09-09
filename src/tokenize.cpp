@@ -28,7 +28,7 @@ static void verror_at(char *filename, char *input, int line_no, char *loc, char 
   while (input < line && line[-1] != '\n') line--;
 
   char *end = loc;
-  while (*end != '\n') end++;
+  while (*end && *end != '\n') end++;
 
   // Print out the line.
   int indent = fprintf(stderr, "%s:%d: ", filename, line_no);

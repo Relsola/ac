@@ -332,6 +332,8 @@ class Member {
 
 Node *new_cast(Node *expr, Type *ty);
 
+int64_t const_expr(Token **rest, Token *tok);
+
 void add_type(Node *node);
 
 void error(char *fmt, ...);
