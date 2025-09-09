@@ -34,6 +34,18 @@ static void pop(char *arg) {
   depth--;
 }
 
+static void pushf(void) {
+  println("  sub $8, %%rsp");
+  println("  movsd %%xmm0, (%%rsp)");
+  depth++;
+}
+
+static void popf(char *arg) {
+  println("  movsd (%%rsp), %s", arg);
+  println("  add $8, %%rsp");
+  depth--;
+}
+
 // Round up `n` to the nearest multiple of `align`. For instance,
 // align_to(5, 8) returns 8 and align_to(11, 8) returns 16.
 int align_to(int n, int align) { return (n + align - 1) / align * align; }
@@ -269,6 +281,22 @@ static void gen_expr(Node *node) {
     }
     case NodeKind::ND_NEG:
       gen_expr(node->lhs);
+
+      switch (node->ty->kind) {
+        case TypeKind::TY_FLOAT:
+          println("  mov $1, %%rax");
+          println("  shl $31, %%rax");
+          println("  movq %%rax, %%xmm1");
+          println("  xorps %%xmm1, %%xmm0");
+          return;
+        case TypeKind::TY_DOUBLE:
+          println("  mov $1, %%rax");
+          println("  shl $63, %%rax");
+          println("  movq %%rax, %%xmm1");
+          println("  xorpd %%xmm1, %%xmm0");
+          return;
+      }
+
       println("  neg %%rax");
       return;
     case NodeKind::ND_VAR:
@@ -403,6 +431,55 @@ static void gen_expr(Node *node) {
     }
   }
 
+  if (node->lhs->ty->is_flonum()) {
+    gen_expr(node->rhs);
+    pushf();
+    gen_expr(node->lhs);
+    popf("%xmm1");
+
+    const char *sz = (node->lhs->ty->kind == TypeKind::TY_FLOAT) ? "ss" : "sd";
+
+    switch (node->kind) {
+      case NodeKind::ND_ADD:
+        println("  add%s %%xmm1, %%xmm0", sz);
+        return;
+      case NodeKind::ND_SUB:
+        println("  sub%s %%xmm1, %%xmm0", sz);
+        return;
+      case NodeKind::ND_MUL:
+        println("  mul%s %%xmm1, %%xmm0", sz);
+        return;
+      case NodeKind::ND_DIV:
+        println("  div%s %%xmm1, %%xmm0", sz);
+        return;
+      case NodeKind::ND_EQ:
+      case NodeKind::ND_NE:
+      case NodeKind::ND_LT:
+      case NodeKind::ND_LE:
+        println("  ucomi%s %%xmm0, %%xmm1", sz);
+
+        if (node->kind == NodeKind::ND_EQ) {
+          println("  sete %%al");
+          println("  setnp %%dl");
+          println("  and %%dl, %%al");
+        } else if (node->kind == NodeKind::ND_NE) {
+          println("  setne %%al");
+          println("  setp %%dl");
+          println("  or %%dl, %%al");
+        } else if (node->kind == NodeKind::ND_LT) {
+          println("  seta %%al");
+        } else {
+          println("  setae %%al");
+        }
+
+        println("  and $1, %%al");
+        println("  movzb %%al, %%rax");
+        return;
+    }
+
+    error_tok(node->tok, "invalid expression");
+  }
+
   gen_expr(node->rhs);
   push();
   gen_expr(node->lhs);
@@ -446,13 +523,13 @@ static void gen_expr(Node *node) {
       if (node->kind == NodeKind::ND_MOD) println("  mov %%rdx, %%rax");
       return;
     case NodeKind::ND_BITAND:
-      println("  and %%rdi, %%rax");
+      println("  and %s, %s", di, ax);
       return;
     case NodeKind::ND_BITOR:
-      println("  or %%rdi, %%rax");
+      println("  or %s, %s", di, ax);
       return;
     case NodeKind::ND_BITXOR:
-      println("  xor %%rdi, %%rax");
+      println("  xor %s, %s", di, ax);
       return;
     case NodeKind::ND_EQ:
     case NodeKind::ND_NE:

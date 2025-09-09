@@ -299,6 +299,8 @@ class Type {
   bool is_flonum() {
     return this->kind == TypeKind::TY_FLOAT || this->kind == TypeKind::TY_DOUBLE;
   };
+
+  bool is_numeric() { return this->is_integer() || this->is_flonum(); };
 };
 
 class Member {
