@@ -5,7 +5,10 @@ static bool opt_cc1;
 static bool opt_hash_hash_hash;
 static char *opt_o;
 
-static char *input_path;
+static char *base_file;
+static char *output_file;
+
+static std::vector<char *> input_paths;
 static std::vector<char *> tmpfiles;
 
 static void usage(int status) {
@@ -13,7 +16,15 @@ static void usage(int status) {
   exit(status);
 }
 
+static bool take_arg(char *arg) { return !strcmp(arg, "-o"); }
+
 static void parse_args(int argc, char **argv) {
+  // Make sure that all command line options that take an argument
+  // have an argument.
+  for (int i = 1; i < argc; i++)
+    if (take_arg(argv[i]))
+      if (!argv[++i]) usage(1);
+
   for (int i = 1; i < argc; i++) {
     if (!strcmp(argv[i], "-###")) {
       opt_hash_hash_hash = true;
@@ -28,8 +39,7 @@ static void parse_args(int argc, char **argv) {
     if (!strcmp(argv[i], "--help")) usage(0);
 
     if (!strcmp(argv[i], "-o")) {
-      if (!argv[++i]) usage(1);
-      opt_o = argv[i];
+      opt_o = argv[++i];
       continue;
     }
 
@@ -43,12 +53,22 @@ static void parse_args(int argc, char **argv) {
       continue;
     }
 
+    if (!strcmp(argv[i], "-cc1-input")) {
+      base_file = argv[++i];
+      continue;
+    }
+
+    if (!strcmp(argv[i], "-cc1-output")) {
+      output_file = argv[++i];
+      continue;
+    }
+
     if (argv[i][0] == '-' && argv[i][1] != '\0') error("unknown argument: %s", argv[i]);
 
-    input_path = argv[i];
+    input_paths.push_back(argv[i]);
   }
 
-  if (!input_path) error("no input files");
+  if (input_paths.size() == 0) error("no input files");
 }
 
 static FILE *open_file(char *path) {
@@ -107,10 +127,13 @@ static void run_cc1(int argc, char **argv, char *input, char *output) {
   memcpy(args, argv, argc * sizeof(char *));
   args[argc++] = "-cc1";
 
-  if (input) args[argc++] = input;
+  if (input) {
+    args[argc++] = "-cc1-input";
+    args[argc++] = input;
+  }
 
   if (output) {
-    args[argc++] = "-o";
+    args[argc++] = "-cc1-output";
     args[argc++] = output;
   }
 
@@ -119,12 +142,12 @@ static void run_cc1(int argc, char **argv, char *input, char *output) {
 
 static void cc1(void) {
   // Tokenize and parse.
-  Token *tok = tokenize_file(input_path);
+  Token *tok = tokenize_file(base_file);
   Obj *prog = parse(tok);
 
   // Traverse the AST to emit assembly.
-  FILE *out = open_file(opt_o);
-  fprintf(out, ".file 1 \"%s\"\n", input_path);
+  FILE *out = open_file(output_file);
+  fprintf(out, ".file 1 \"%s\"\n", base_file);
   codegen(prog, out);
 }
 
@@ -142,23 +165,28 @@ int main(int argc, char **argv) {
     return 0;
   }
 
-  char *output;
-  if (opt_o)
-    output = opt_o;
-  else if (opt_S)
-    output = replace_extn(input_path, ".s");
-  else
-    output = replace_extn(input_path, ".o");
+  if (input_paths.size() > 1 && opt_o) error("cannot specify '-o' with multiple files");
 
-  // If -S is given, assembly text is the final output.
-  if (opt_S) {
-    run_cc1(argc, argv, input_path, output);
-    return 0;
+  for (auto &input : input_paths) {
+    char *output;
+    if (opt_o)
+      output = opt_o;
+    else if (opt_S)
+      output = replace_extn(input, ".s");
+    else
+      output = replace_extn(input, ".o");
+
+    // If -S is given, assembly text is the final output.
+    if (opt_S) {
+      run_cc1(argc, argv, input, output);
+      continue;
+    }
+
+    // Otherwise, run the assembler to assemble our output.
+    char *tmpfile = create_tmpfile();
+    run_cc1(argc, argv, input, tmpfile);
+    assemble(tmpfile, output);
   }
 
-  // Otherwise, run the assembler to assemble our output.
-  char *tmpfile = create_tmpfile();
-  run_cc1(argc, argv, input_path, tmpfile);
-  assemble(tmpfile, output);
   return 0;
 }
