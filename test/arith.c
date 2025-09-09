@@ -1,36 +1,35 @@
 #include "test.h"
 
 int main() {
-  // clang-format off
   ASSERT(0, 0);
   ASSERT(42, 42);
-  ASSERT(21, 5 + 20 - 4);
-  ASSERT(41, 12 + 34 - 5);
-  ASSERT(47, 5 + 6 * 7);
-  ASSERT(15, 5 * (9 - 6));
-  ASSERT(4, (3 + 5) / 2);
-  ASSERT(10, -10 + 20);
+  ASSERT(21, 5+20-4);
+  ASSERT(41,  12 + 34 - 5 );
+  ASSERT(47, 5+6*7);
+  ASSERT(15, 5*(9-6));
+  ASSERT(4, (3+5)/2);
+  ASSERT(10, -10+20);
   ASSERT(10, - -10);
-  ASSERT(10, - -+10);
+  ASSERT(10, - - +10);
 
-  ASSERT(0, 0 == 1);
-  ASSERT(1, 42 == 42);
-  ASSERT(1, 0 != 1);
-  ASSERT(0, 42 != 42);
+  ASSERT(0, 0==1);
+  ASSERT(1, 42==42);
+  ASSERT(1, 0!=1);
+  ASSERT(0, 42!=42);
 
-  ASSERT(1, 0 < 1);
-  ASSERT(0, 1 < 1);
-  ASSERT(0, 2 < 1);
-  ASSERT(1, 0 <= 1);
-  ASSERT(1, 1 <= 1);
-  ASSERT(0, 2 <= 1);
+  ASSERT(1, 0<1);
+  ASSERT(0, 1<1);
+  ASSERT(0, 2<1);
+  ASSERT(1, 0<=1);
+  ASSERT(1, 1<=1);
+  ASSERT(0, 2<=1);
 
-  ASSERT(1, 1 > 0);
-  ASSERT(0, 1 > 1);
-  ASSERT(0, 1 > 2);
-  ASSERT(1, 1 >= 0);
-  ASSERT(1, 1 >= 1);
-  ASSERT(0, 1 >= 2);
+  ASSERT(1, 1>0);
+  ASSERT(0, 1>1);
+  ASSERT(0, 1>2);
+  ASSERT(1, 1>=0);
+  ASSERT(1, 1>=1);
+  ASSERT(0, 1>=2);
 
   ASSERT(0, 1073741824 * 100 / 100);
 
@@ -121,7 +120,14 @@ int main() {
   ASSERT(-2, 1?-2:(long)-1);
 
   1 ? -2 : (void)-1;
-  // clang-format on
+
+  ASSERT(20, ({ int x; int *p=&x; p+20-p; }));
+  ASSERT(1, ({ int x; int *p=&x; p+20-p>0; }));
+  ASSERT(-20, ({ int x; int *p=&x; p-20-p; }));
+  ASSERT(1, ({ int x; int *p=&x; p-20-p<0; }));
+
+  ASSERT(15, (char *)0xffffffffffffffff - (char *)0xfffffffffffffff0);
+  ASSERT(-15, (char *)0xfffffffffffffff0 - (char *)0xffffffffffffffff);
 
   printf("OK\n");
   return 0;
