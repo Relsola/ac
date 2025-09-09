@@ -1,10 +1,12 @@
 #include "core.h"
 
+static bool opt_S;
 static bool opt_cc1;
 static bool opt_hash_hash_hash;
 static char *opt_o;
 
 static char *input_path;
+static std::vector<char *> tmpfiles;
 
 static void usage(int status) {
   fprintf(stderr, "ac [ -o <path> ] <file>\n");
@@ -36,6 +38,11 @@ static void parse_args(int argc, char **argv) {
       continue;
     }
 
+    if (!strcmp(argv[i], "-S")) {
+      opt_S = true;
+      continue;
+    }
+
     if (argv[i][0] == '-' && argv[i][1] != '\0') error("unknown argument: %s", argv[i]);
 
     input_path = argv[i];
@@ -50,6 +57,27 @@ static FILE *open_file(char *path) {
   FILE *out = fopen(path, "w");
   if (!out) error("cannot open output file: %s: %s", path, strerror(errno));
   return out;
+}
+
+// Replace file extension
+static char *replace_extn(char *tmpl, char *extn) {
+  char *filename = basename(strdup(tmpl));
+  char *dot = strrchr(filename, '.');
+  if (dot) *dot = '\0';
+  return format("%s%s", filename, extn);
+}
+
+static void cleanup(void) {
+  for (auto &item : tmpfiles) unlink(item);
+}
+
+static char *create_tmpfile(void) {
+  char *path = strdup("/tmp/ac-XXXXXX");
+  int fd = mkstemp(path);
+  if (fd == -1) error("mkstemp failed: %s", strerror(errno));
+  close(fd);
+  tmpfiles.push_back(path);
+  return path;
 }
 
 static void run_subprocess(char **argv) {
@@ -74,10 +102,18 @@ static void run_subprocess(char **argv) {
   if (status != 0) exit(1);
 }
 
-static void run_cc1(int argc, char **argv) {
+static void run_cc1(int argc, char **argv, char *input, char *output) {
   char **args = new char *[argc + 10]();
   memcpy(args, argv, argc * sizeof(char *));
   args[argc++] = "-cc1";
+
+  if (input) args[argc++] = input;
+
+  if (output) {
+    args[argc++] = "-o";
+    args[argc++] = output;
+  }
+
   run_subprocess(args);
 }
 
@@ -92,7 +128,13 @@ static void cc1(void) {
   codegen(prog, out);
 }
 
+static void assemble(char *input, char *output) {
+  char *cmd[] = {"as", "-c", input, "-o", output, NULL};
+  run_subprocess(cmd);
+}
+
 int main(int argc, char **argv) {
+  atexit(cleanup);
   parse_args(argc, argv);
 
   if (opt_cc1) {
@@ -100,6 +142,23 @@ int main(int argc, char **argv) {
     return 0;
   }
 
-  run_cc1(argc, argv);
+  char *output;
+  if (opt_o)
+    output = opt_o;
+  else if (opt_S)
+    output = replace_extn(input_path, ".s");
+  else
+    output = replace_extn(input_path, ".o");
+
+  // If -S is given, assembly text is the final output.
+  if (opt_S) {
+    run_cc1(argc, argv, input_path, output);
+    return 0;
+  }
+
+  // Otherwise, run the assembler to assemble our output.
+  char *tmpfile = create_tmpfile();
+  run_cc1(argc, argv, input_path, tmpfile);
+  assemble(tmpfile, output);
   return 0;
 }
