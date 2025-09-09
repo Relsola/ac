@@ -22,6 +22,7 @@ Type *Type::copy_type(Type *ty) {
 Type *Type::pointer_to(Type *base) {
   Type *ty = new Type(TypeKind::TY_PTR, 8, 8);
   ty->base = base;
+  ty->is_unsigned = true;
   return ty;
 }
 
