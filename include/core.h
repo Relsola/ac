@@ -101,6 +101,12 @@ enum class TypeKind : int {
   TY_UNION,
 };
 
+struct File {
+  char *name = nullptr;
+  int file_no = 0;
+  char *contents = nullptr;
+};
+
 class Token {
  public:
   TokenKind kind = TokenKind::TK_EOF;  // Token kind
@@ -112,8 +118,9 @@ class Token {
   Type *ty = nullptr;                  // Used if TK_NUM or TK_STR
   char *str = nullptr;                 // String literal contents including terminating '\0'
 
-  int line_no = 0;  // Line number
-  bool at_bol;      // True if this token is at beginning of line
+  File *file = nullptr;  // Source location
+  int line_no = 0;       // Line number
+  bool at_bol = false;   // True if this token is at beginning of line
 
   Token() = default;
 
@@ -333,6 +340,10 @@ void error_at(char *loc, char *fmt, ...);
 
 void error_tok(Token *tok, char *fmt, ...);
 
+void convert_keywords(Token *tok);
+
+std::vector<File *> get_input_files();
+
 Token *tokenize_file(char *filename);
 
 Obj *parse(Token *tok);
@@ -343,9 +354,14 @@ void codegen(Obj *prog, FILE *out);
 
 #define unreachable() error("internal error at %s:%d", __FILE__, __LINE__)
 
-void convert_keywords(Token *tok);
-
 //
 // preprocess.c
 //
+
 Token *preprocess(Token *tok);
+
+//
+// main.c
+//
+
+extern char *base_file;

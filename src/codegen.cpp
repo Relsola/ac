@@ -306,7 +306,7 @@ static void push_args(Node *args) {
 
 // Generate code for a given node.
 static void gen_expr(Node *node) {
-  println("  .loc 1 %d", node->tok->line_no);
+  println("  .loc %d %d", node->tok->file->file_no, node->tok->line_no);
 
   switch (node->kind) {
     case NodeKind::ND_NULL_EXPR:
@@ -628,7 +628,7 @@ static void gen_expr(Node *node) {
 }
 
 static void gen_stmt(Node *node) {
-  println("  .loc 1 %d", node->tok->line_no);
+  println("  .loc %d %d", node->tok->file->file_no, node->tok->line_no);
 
   switch (node->kind) {
     case NodeKind::ND_IF: {
@@ -868,6 +868,9 @@ static void emit_text(Obj *prog) {
 
 void codegen(Obj *prog, FILE *out) {
   output_file = out;
+
+  std::vector<File *> files = get_input_files();
+  for (auto &file : files) println("  .file %d \"%s\"", file->file_no, file->name);
 
   assign_lvar_offsets(prog);
   emit_data(prog);

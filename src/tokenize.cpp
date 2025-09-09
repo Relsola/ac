@@ -1,10 +1,10 @@
 #include "core.h"
 
-// Input filename
-static char *current_filename;
+// Input file
+static File *current_file;
 
-// Input string
-static char *current_input;
+// A list of all input files.
+static std::vector<File *> input_files;
 
 // True if the current position is at the beginning of a line
 static bool at_bol;
@@ -22,16 +22,16 @@ void error(char *fmt, ...) {
 //
 // foo.c:10: x = y + 1;
 //               ^ <error message here>
-static void verror_at(int line_no, char *loc, char *fmt, va_list ap) {
+static void verror_at(char *filename, char *input, int line_no, char *loc, char *fmt, va_list ap) {
   // Find a line containing `loc`.
   char *line = loc;
-  while (current_input < line && line[-1] != '\n') line--;
+  while (input < line && line[-1] != '\n') line--;
 
   char *end = loc;
   while (*end != '\n') end++;
 
   // Print out the line.
-  int indent = fprintf(stderr, "%s:%d: ", current_filename, line_no);
+  int indent = fprintf(stderr, "%s:%d: ", filename, line_no);
   fprintf(stderr, "%.*s\n", (int)(end - line), line);
 
   // Show the error message.
@@ -46,24 +46,25 @@ static void verror_at(int line_no, char *loc, char *fmt, va_list ap) {
 
 void error_at(char *loc, char *fmt, ...) {
   int line_no = 1;
-  for (char *p = current_input; p < loc; p++)
+  for (char *p = current_file->contents; p < loc; p++)
     if (*p == '\n') line_no++;
 
   va_list ap;
   va_start(ap, fmt);
-  verror_at(line_no, loc, fmt, ap);
+  verror_at(current_file->name, current_file->contents, line_no, loc, fmt, ap);
 }
 
 void error_tok(Token *tok, char *fmt, ...) {
   va_list ap;
   va_start(ap, fmt);
-  verror_at(tok->line_no, tok->loc, fmt, ap);
+  verror_at(tok->file->name, tok->file->contents, tok->line_no, tok->loc, fmt, ap);
   exit(1);
 }
 
 // Create a new token.
 static Token *new_token(TokenKind kind, char *start, char *end) {
   Token *tok = new Token(kind, start, end);
+  tok->file = current_file;
   tok->at_bol = at_bol;
   at_bol = false;
   return tok;
@@ -326,7 +327,7 @@ void convert_keywords(Token *tok) {
 
 // Initialize line info for all tokens.
 static void add_line_numbers(Token *tok) {
-  char *p = current_input;
+  char *p = current_file->contents;
   int n = 1;
 
   do {
@@ -339,9 +340,10 @@ static void add_line_numbers(Token *tok) {
 }
 
 // Tokenize a given string and returns new tokens.
-static Token *tokenize(char *filename, char *p) {
-  current_filename = filename;
-  current_input = p;
+static Token *tokenize(File *file) {
+  current_file = file;
+
+  char *p = file->contents;
   Token head;
   Token *cur = &head;
 
@@ -432,7 +434,7 @@ static char *read_file(char *path) {
     fp = stdin;
   } else {
     fp = fopen(path, "r");
-    if (!fp) error("cannot open %s: %s", path, strerror(errno));
+    if (!fp) return nullptr;
   }
 
   char *buf;
@@ -457,4 +459,26 @@ static char *read_file(char *path) {
   return buf;
 }
 
-Token *tokenize_file(char *path) { return tokenize(path, read_file(path)); }
+std::vector<File *> get_input_files() { return input_files; }
+
+static File *new_file(char *name, int file_no, char *contents) {
+  File *file = new File();
+  file->name = name;
+  file->file_no = file_no;
+  file->contents = contents;
+  return file;
+}
+
+Token *tokenize_file(char *path) {
+  char *p = read_file(path);
+  if (!p) return nullptr;
+
+  static int file_no = 0;
+  File *file = new_file(path, file_no + 1, p);
+
+  // Save the filename for assembler .file directive.
+  input_files.push_back(file);
+  file_no++;
+
+  return tokenize(file);
+}
