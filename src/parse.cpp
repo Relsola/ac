@@ -1353,10 +1353,12 @@ static int64_t eval(Node *node, char **label) {
     case NodeKind::ND_MUL:
       return eval(node->lhs) * eval(node->rhs);
     case NodeKind::ND_DIV:
+      if (node->ty->is_unsigned) return (uint64_t)eval(node->lhs) / eval(node->rhs);
       return eval(node->lhs) / eval(node->rhs);
     case NodeKind::ND_NEG:
       return -eval(node->lhs);
     case NodeKind::ND_MOD:
+      if (node->ty->is_unsigned) return (uint64_t)eval(node->lhs) % eval(node->rhs);
       return eval(node->lhs) % eval(node->rhs);
     case NodeKind::ND_BITAND:
       return eval(node->lhs) & eval(node->rhs);
@@ -1367,14 +1369,18 @@ static int64_t eval(Node *node, char **label) {
     case NodeKind::ND_SHL:
       return eval(node->lhs) << eval(node->rhs);
     case NodeKind::ND_SHR:
+      if (node->ty->is_unsigned && node->ty->size == 8)
+        return (uint64_t)eval(node->lhs) >> eval(node->rhs);
       return eval(node->lhs) >> eval(node->rhs);
     case NodeKind::ND_EQ:
       return eval(node->lhs) == eval(node->rhs);
     case NodeKind::ND_NE:
       return eval(node->lhs) != eval(node->rhs);
     case NodeKind::ND_LT:
+      if (node->lhs->ty->is_unsigned) return (uint64_t)eval(node->lhs) < eval(node->rhs);
       return eval(node->lhs) < eval(node->rhs);
     case NodeKind::ND_LE:
+      if (node->lhs->ty->is_unsigned) return (uint64_t)eval(node->lhs) <= eval(node->rhs);
       return eval(node->lhs) <= eval(node->rhs);
     case NodeKind::ND_COND:
       return eval(node->cond) ? eval(node->then, label) : eval(node->els, label);
@@ -1393,11 +1399,11 @@ static int64_t eval(Node *node, char **label) {
       if (node->ty->is_integer()) {
         switch (node->ty->size) {
           case 1:
-            return (uint8_t)val;
+            return node->ty->is_unsigned ? (uint8_t)val : (int8_t)val;
           case 2:
-            return (uint16_t)val;
+            return node->ty->is_unsigned ? (uint16_t)val : (int16_t)val;
           case 4:
-            return (uint32_t)val;
+            return node->ty->is_unsigned ? (uint32_t)val : (int32_t)val;
         }
       }
       return val;

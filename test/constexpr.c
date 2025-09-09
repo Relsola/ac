@@ -1,7 +1,6 @@
 #include "test.h"
 
 int main() {
-  // clang-format off
   ASSERT(10, ({ enum { ten=1+2+3+4 }; ten; }));
   ASSERT(1, ({ int i=0; switch(3) { case 5-2+0*3: i++; } i; }));
   ASSERT(8, ({ int x[1+1]; sizeof(x); }));
@@ -35,7 +34,15 @@ int main() {
   ASSERT(8, ({ char x[(int*)0+2]; sizeof(x); }));
   ASSERT(12, ({ char x[(int*)16-1]; sizeof(x); }));
   ASSERT(3, ({ char x[(int*)16-(int*)4]; sizeof(x); }));
-  // clang-format on
+
+  ASSERT(4, ({ char x[(-1>>31)+5]; sizeof(x); }));
+  ASSERT(255, ({ char x[(unsigned char)0xffffffff]; sizeof(x); }));
+  ASSERT(0x800f, ({ char x[(unsigned short)0xffff800f]; sizeof(x); }));
+  ASSERT(1, ({ char x[(unsigned int)0xfffffffffff>>31]; sizeof(x); }));
+  ASSERT(1, ({ char x[(long)-1/((long)1<<62)+1]; sizeof(x); }));
+  ASSERT(4, ({ char x[(unsigned long)-1/((long)1<<62)+1]; sizeof(x); }));
+  ASSERT(1, ({ char x[(unsigned)1<-1]; sizeof(x); }));
+  ASSERT(1, ({ char x[(unsigned)1<=-1]; sizeof(x); }));
 
   printf("OK\n");
   return 0;
