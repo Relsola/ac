@@ -113,6 +113,7 @@ class Token {
   char *str = nullptr;                 // String literal contents including terminating '\0'
 
   int line_no = 0;  // Line number
+  bool at_bol;      // True if this token is at beginning of line
 
   Token() = default;
 

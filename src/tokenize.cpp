@@ -6,6 +6,9 @@ static char *current_filename;
 // Input string
 static char *current_input;
 
+// True if the current position is at the beginning of a line
+static bool at_bol;
+
 // Reports an error and exit.
 void error(char *fmt, ...) {
   va_list ap;
@@ -56,6 +59,14 @@ void error_tok(Token *tok, char *fmt, ...) {
   va_start(ap, fmt);
   verror_at(tok->line_no, tok->loc, fmt, ap);
   exit(1);
+}
+
+// Create a new token.
+static Token *new_token(TokenKind kind, char *start, char *end) {
+  Token *tok = new Token(kind, start, end);
+  tok->at_bol = at_bol;
+  at_bol = false;
+  return tok;
 }
 
 static bool startswith(char *p, char *q) { return strncmp(p, q, strlen(q)) == 0; }
@@ -183,7 +194,7 @@ static Token *read_string_literal(char *start) {
       buf[len++] = *p++;
   }
 
-  Token *tok = new Token(TokenKind::TK_STR, start, end + 1);
+  Token *tok = new_token(TokenKind::TK_STR, start, end + 1);
   tok->ty = Type::array_of(Type::ty_char, len + 1);
   tok->str = buf;
   return tok;
@@ -202,7 +213,7 @@ static Token *read_char_literal(char *start) {
   char *end = strchr(p, '\'');
   if (!end) error_at(p, "unclosed char literal");
 
-  Token *tok = new Token(TokenKind::TK_NUM, start, end + 1);
+  Token *tok = new_token(TokenKind::TK_NUM, start, end + 1);
   tok->val = c;
   tok->ty = Type::ty_int;
   return tok;
@@ -276,7 +287,7 @@ static Token *read_int_literal(char *start) {
       ty = Type::ty_int;
   }
 
-  Token *tok = new Token(TokenKind::TK_NUM, start, p);
+  Token *tok = new_token(TokenKind::TK_NUM, start, p);
   tok->val = val;
   tok->ty = ty;
   return tok;
@@ -302,7 +313,7 @@ static Token *read_number(char *start) {
     ty = Type::ty_double;
   }
 
-  tok = new Token(TokenKind::TK_NUM, start, end);
+  tok = new_token(TokenKind::TK_NUM, start, end);
   tok->fval = val;
   tok->ty = ty;
   return tok;
@@ -334,6 +345,8 @@ static Token *tokenize(char *filename, char *p) {
   Token head;
   Token *cur = &head;
 
+  at_bol = true;
+
   while (*p) {
     // Skip line comments.
     if (startswith(p, "//")) {
@@ -347,6 +360,13 @@ static Token *tokenize(char *filename, char *p) {
       char *q = strstr(p + 2, "*/");
       if (!q) error_at(p, "unclosed block comment");
       p = q + 2;
+      continue;
+    }
+
+    // Skip newline.
+    if (*p == '\n') {
+      p++;
+      at_bol = true;
       continue;
     }
 
@@ -383,14 +403,14 @@ static Token *tokenize(char *filename, char *p) {
       do {
         p++;
       } while (is_ident2(*p));
-      cur = cur->next = new Token(TokenKind::TK_IDENT, start, p);
+      cur = cur->next = new_token(TokenKind::TK_IDENT, start, p);
       continue;
     }
 
     // Punctuators
     int punct_len = read_punct(p);
     if (punct_len) {
-      cur = cur->next = new Token(TokenKind::TK_PUNCT, p, p + punct_len);
+      cur = cur->next = new_token(TokenKind::TK_PUNCT, p, p + punct_len);
       p += cur->len;
       continue;
     }
@@ -398,7 +418,7 @@ static Token *tokenize(char *filename, char *p) {
     error_at(p, "invalid token");
   }
 
-  cur = cur->next = new Token(TokenKind::TK_EOF, p, p);
+  cur = cur->next = new_token(TokenKind::TK_EOF, p, p);
   add_line_numbers(head.next);
   return head.next;
 }
