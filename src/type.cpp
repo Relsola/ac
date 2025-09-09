@@ -13,6 +13,9 @@ Type *Type::ty_ushort = new Type(TypeKind::TY_SHORT, 2, 2, true);
 Type *Type::ty_uint = new Type(TypeKind::TY_INT, 4, 4, true);
 Type *Type::ty_ulong = new Type(TypeKind::TY_LONG, 8, 8, true);
 
+Type *Type::ty_float = new Type(TypeKind::TY_FLOAT, 4, 4);
+Type *Type::ty_double = new Type(TypeKind::TY_DOUBLE, 8, 8);
+
 Type *Type::copy_type(Type *ty) {
   Type *ret = new Type();
   *ret = *ty;

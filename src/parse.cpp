@@ -2154,7 +2154,14 @@ static Node *primary(Token **rest, Token *tok) {
   }
 
   if (tok->kind == TokenKind::TK_NUM) {
-    Node *node = new_num(tok->val, tok);
+    Node *node;
+    if (tok->ty->is_flonum()) {
+      node = new_node(NodeKind::ND_NUM, tok);
+      node->fval = tok->fval;
+    } else {
+      node = new_num(tok->val, tok);
+    }
+
     node->ty = tok->ty;
     *rest = tok->next;
     return node;
