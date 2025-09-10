@@ -3,7 +3,7 @@
 // `#if` can be nested, so we use a stack to manage nested `#if`s.
 struct CondIncl {
   CondIncl *next = nullptr;
-  enum { IN_THEN, IN_ELSE } ctx = IN_THEN;
+  enum { IN_THEN, IN_ELIF, IN_ELSE } ctx = IN_THEN;
   Token *tok = nullptr;
   bool included = false;
 };
@@ -60,7 +60,7 @@ static Token *skip_cond_incl2(Token *tok) {
   return tok;
 }
 
-// Skip until next `#else` or `#endif`.
+// Skip until next `#else`, `#elif` or `#endif`.
 // Nested `#if` and `#endif` are skipped.
 static Token *skip_cond_incl(Token *tok) {
   while (tok->kind != TokenKind::TK_EOF) {
@@ -69,7 +69,9 @@ static Token *skip_cond_incl(Token *tok) {
       continue;
     }
 
-    if (is_hash(tok) && (tok->next->equal("else") || tok->next->equal("endif"))) break;
+    if (is_hash(tok) &&
+        (tok->next->equal("elif") || tok->next->equal("else") || tok->next->equal("endif")))
+      break;
     tok = tok->next;
   }
   return tok;
@@ -150,6 +152,17 @@ static Token *preprocess2(Token *tok) {
       long val = eval_const_expr(&tok, tok);
       push_cond_incl(start, val);
       if (!val) tok = skip_cond_incl(tok);
+      continue;
+    }
+
+    if (tok->equal("elif")) {
+      if (!cond_incl || cond_incl->ctx == CondIncl::IN_ELSE) error_tok(start, "stray #elif");
+      cond_incl->ctx = CondIncl::IN_ELIF;
+
+      if (!cond_incl->included && eval_const_expr(&tok, tok))
+        cond_incl->included = true;
+      else
+        tok = skip_cond_incl(tok);
       continue;
     }
 
