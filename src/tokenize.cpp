@@ -1,4 +1,4 @@
-#include "core.h"
+#include "core.hpp"
 
 // Input file
 static File *current_file;

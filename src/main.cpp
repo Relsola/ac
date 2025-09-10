@@ -1,4 +1,4 @@
-#include "core.h"
+#include "core.hpp"
 
 std::vector<char *> include_paths;
 
@@ -217,14 +217,14 @@ static void cc1(void) {
 }
 
 static void assemble(char *input, char *output) {
-  char *cmd[] = {"as", "-c", input, "-o", output, NULL};
+  char *cmd[] = {"as", "-c", input, "-o", output, nullptr};
   run_subprocess(cmd);
 }
 
 static char *find_file(char *pattern) {
-  char *path = NULL;
+  char *path = nullptr;
   glob_t buf = {};
-  glob(pattern, 0, NULL, &buf);
+  glob(pattern, 0, nullptr, &buf);
   if (buf.gl_pathc > 0) path = strdup(buf.gl_pathv[buf.gl_pathc - 1]);
   globfree(&buf);
   return path;

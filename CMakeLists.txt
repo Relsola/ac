@@ -20,9 +20,7 @@ SET(CMAKE_BUILD_TYPE "Debug")
 # 开启调试 出现问题时开启
 # set(CMAKE_VERBOSE_MAKEFILE ON)
 
-# 包含源文件目录
 include_directories(src)
-include_directories(include)
 
 # 设置输出目录（在创建目标之前）
 if(CMAKE_BUILD_TYPE STREQUAL "Debug")
@@ -34,7 +32,7 @@ else()
 endif()
 
 # 收集所有源文件
-file(GLOB_RECURSE SOURCES "src/*.cpp" "include/*.h")
+file(GLOB_RECURSE SOURCES "src/*.cpp" "src/*hpp")
 
 # 创建可执行文件
 add_executable(${PROJECT_NAME} ${SOURCES})

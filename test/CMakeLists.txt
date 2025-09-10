@@ -10,13 +10,13 @@ foreach(test_src ${TEST_SRC})
     # 1. 预处理并用主编译器生成汇编
     add_custom_command(
         OUTPUT ${test_o}
-        COMMAND $<TARGET_FILE:ac> -I${CMAKE_SOURCE_DIR}/test -c -o ${test_o} ${test_src}
+        COMMAND $<TARGET_FILE:ac> -I${CMAKE_SOURCE_DIR}/test -I${CMAKE_SOURCE_DIR}/include -c -o ${test_o} ${test_src}
         DEPENDS ${test_src} $<TARGET_FILE:ac>
         COMMENT "Generating ${test_o}"
         VERBATIM
     )
 
-    # 2. 汇编生成可执行文件
+    # 2. 生成可执行文件
     add_custom_command(
         OUTPUT ${test_exe}
         COMMAND ${CMAKE_C_COMPILER} -o ${test_exe} ${test_o} -xc ${CMAKE_CURRENT_SOURCE_DIR}/common

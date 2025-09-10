@@ -22,7 +22,7 @@
 // standard's wording:
 // https://github.com/rui314/chibicc/wiki/cpp.algo.pdf
 
-#include "core.h"
+#include "core.hpp"
 
 struct MacroParam {
   MacroParam *next = nullptr;

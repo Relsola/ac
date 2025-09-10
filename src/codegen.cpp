@@ -1,4 +1,7 @@
-#include "core.h"
+#include "core.hpp"
+
+#define GP_MAX 6
+#define FP_MAX 8
 
 static FILE *output_file;
 static int depth;
@@ -274,7 +277,7 @@ static char *cast_table[][10] = {
     {i32i8, i32i16, nullptr, nullptr, i32u8, i32u16, nullptr, nullptr, u64f32, u64f64},    // u64
 
     {f32i8, f32i16, f32i32, f32i64, f32u8, f32u16, f32u32, f32u64, nullptr, f32f64},  // f32
-    {f64i8, f64i16, f64i32, f64i64, f64u8, f64u16, f64u32, f64u64, f64f32, NULL},     // f64
+    {f64i8, f64i16, f64i32, f64i64, f64u8, f64u16, f64u32, f64u64, f64f32, nullptr},  // f64
 };
 
 static void cast(Type *from, Type *to) {
@@ -292,16 +295,66 @@ static void cast(Type *from, Type *to) {
   if (cast_table[t1][t2]) println("  %s", cast_table[t1][t2]);
 }
 
-static void push_args(Node *args) {
-  if (args) {
-    push_args(args->next);
+static void push_args2(Node *args, bool first_pass) {
+  if (!args) return;
 
-    gen_expr(args);
-    if (args->ty->is_flonum())
-      pushf();
-    else
-      push();
+  push_args2(args->next, first_pass);
+
+  if ((first_pass && !args->pass_by_stack) || (!first_pass && args->pass_by_stack)) return;
+
+  gen_expr(args);
+
+  if (args->ty->is_flonum())
+    pushf();
+  else
+    push();
+}
+
+// Load function call arguments. Arguments are already evaluated and
+// stored to the stack as local variables. What we need to do in this
+// function is to load them to registers or push them to the stack as
+// specified by the x86-64 psABI. Here is what the spec says:
+//
+// - Up to 6 arguments of integral type are passed using RDI, RSI,
+//   RDX, RCX, R8 and R9.
+//
+// - Up to 8 arguments of floating-point type are passed using XMM0 to
+//   XMM7.
+//
+// - If all registers of an appropriate type are already used, push an
+//   argument to the stack in the right-to-left order.
+//
+// - Each argument passed on the stack takes 8 bytes, and the end of
+//   the argument area must be aligned to a 16 byte boundary.
+//
+// - If a function is variadic, set the number of floating-point type
+//   arguments to RAX.
+static int push_args(Node *args) {
+  int stack = 0, gp = 0, fp = 0;
+
+  for (Node *arg = args; arg; arg = arg->next) {
+    if (arg->ty->is_flonum()) {
+      if (fp++ >= FP_MAX) {
+        arg->pass_by_stack = true;
+        stack++;
+      }
+    } else {
+      if (gp++ >= GP_MAX) {
+        arg->pass_by_stack = true;
+        stack++;
+      }
+    }
   }
+
+  if ((depth + stack) % 2 == 1) {
+    println("  sub $8, %%rsp");
+    depth++;
+    stack++;
+  }
+
+  push_args2(args, true);
+  push_args2(args, false);
+  return stack;
 }
 
 // Generate code for a given node.
@@ -444,24 +497,24 @@ static void gen_expr(Node *node) {
       return;
     }
     case NodeKind::ND_FUNCALL: {
-      push_args(node->args);
+      int stack_args = push_args(node->args);
       gen_expr(node->lhs);
 
       int gp = 0, fp = 0;
       for (Node *arg = node->args; arg; arg = arg->next) {
-        if (arg->ty->is_flonum())
-          popf(fp++);
-        else
-          pop(argreg64[gp++]);
+        if (arg->ty->is_flonum()) {
+          if (fp < FP_MAX) popf(fp++);
+        } else {
+          if (gp < GP_MAX) pop(argreg64[gp++]);
+        }
       }
 
-      if (depth % 2 == 0) {
-        println("  call *%%rax");
-      } else {
-        println("  sub $8, %%rsp");
-        println("  call *%%rax");
-        println("  add $8, %%rsp");
-      }
+      println("  mov %%rax, %%r10");
+      println("  mov $%d, %%rax", fp);
+      println("  call *%%r10");
+      println("  add $%d, %%rsp", stack_args * 8);
+
+      depth -= stack_args;
 
       // It looks like the most significant 48 or 56 bits in RAX may
       // contain garbage if a function return type is short or bool/char,
@@ -716,13 +769,37 @@ static void assign_lvar_offsets(Obj *prog) {
   for (Obj *fn = prog; fn; fn = fn->next) {
     if (!fn->is_function) continue;
 
-    int offset = 0;
-    for (Obj *var = fn->locals; var; var = var->next) {
-      offset += var->ty->size;
-      offset = align_to(offset, var->align);
-      var->offset = -offset;
+    // If a function has many parameters, some parameters are
+    // inevitably passed by stack rather than by register.
+    // The first passed-by-stack parameter resides at RBP+16.
+    int top = 16;
+    int bottom = 0;
+
+    int gp = 0, fp = 0;
+
+    // Assign offsets to pass-by-stack parameters.
+    for (Obj *var = fn->params; var; var = var->next) {
+      if (var->ty->is_flonum()) {
+        if (fp++ < FP_MAX) continue;
+      } else {
+        if (gp++ < GP_MAX) continue;
+      }
+
+      top = align_to(top, 8);
+      var->offset = top;
+      top += var->ty->size;
     }
-    fn->stack_size = align_to(offset, 16);
+
+    // Assign offsets to pass-by-register parameters and local variables.
+    for (Obj *var = fn->locals; var; var = var->next) {
+      if (var->offset) continue;
+
+      bottom += var->ty->size;
+      bottom = align_to(bottom, var->align);
+      var->offset = -bottom;
+    }
+
+    fn->stack_size = align_to(bottom, 16);
   }
 }
 

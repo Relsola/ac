@@ -1,4 +1,4 @@
-#include "core.h"
+#include "core.hpp"
 
 Type *Type::ty_void = new Type(TypeKind::TY_VOID, 1, 1);
 Type *Type::ty_bool = new Type(TypeKind::TY_BOOL, 1, 1);

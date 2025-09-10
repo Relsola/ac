@@ -16,7 +16,7 @@
 // So it is very easy to lookahead arbitrary number of tokens in this
 // parser.
 
-#include "core.h"
+#include "core.hpp"
 
 // Scope for local variables, global variables, typedefs
 // or enum constants
@@ -2165,6 +2165,7 @@ static Node *funcall(Token **rest, Token *tok, Node *fn) {
 //         | "sizeof" unary
 //         | "_Alignof" "(" type-name ")"
 //         | "_Alignof" unary
+//         | "__builtin_reg_class" "(" type-name ")"
 //         | ident
 //         | str
 //         | num
@@ -2207,6 +2208,16 @@ static Node *primary(Token **rest, Token *tok) {
     Node *node = unary(rest, tok->next);
     add_type(node);
     return new_ulong(node->ty->align, tok);
+  }
+
+  if (tok->equal("__builtin_reg_class")) {
+    tok = tok->next->skip("(");
+    Type *ty = type_name(&tok, tok);
+    *rest = tok->skip(")");
+
+    if (ty->is_integer() || ty->kind == TypeKind::TY_PTR) return new_num(0, start);
+    if (ty->is_flonum()) return new_num(1, start);
+    return new_num(2, start);
   }
 
   if (tok->kind == TokenKind::TK_IDENT) {

@@ -1,4 +1,4 @@
-#include "core.h"
+#include "core.hpp"
 
 Token *Token::skip(char *s) {
   if (!this->equal(s)) error_tok(this, "expected '%s'", s);

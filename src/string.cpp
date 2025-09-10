@@ -1,4 +1,4 @@
-#include "core.h"
+#include "core.hpp"
 
 // Takes a printf-style format string and returns a formatted string.
 char *format(char *fmt, ...) {

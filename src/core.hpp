@@ -217,6 +217,7 @@ class Node {
   // Function call
   Type *func_ty = nullptr;
   Node *args = nullptr;
+  bool pass_by_stack = false;
 
   // Goto or labeled statement
   char *label = nullptr;
