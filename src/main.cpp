@@ -28,6 +28,17 @@ static bool take_arg(char *arg) {
   return false;
 }
 
+static void add_default_include_paths(char *argv0) {
+  // We expect that chibicc-specific include files are installed
+  // to ./include relative to argv[0].
+  include_paths.push_back(format("%s/include", dirname(strdup(argv0))));
+
+  // Add standard include paths.
+  include_paths.push_back("/usr/local/include");
+  include_paths.push_back("/usr/include/x86_64-linux-gnu");
+  include_paths.push_back("/usr/include");
+}
+
 static void parse_args(int argc, char **argv) {
   // Make sure that all command line options that take an argument
   // have an argument.
@@ -286,6 +297,7 @@ int main(int argc, char **argv) {
   parse_args(argc, argv);
 
   if (opt_cc1) {
+    add_default_include_paths(argv[0]);
     cc1();
     return 0;
   }
