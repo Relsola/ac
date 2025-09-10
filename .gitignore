@@ -3,3 +3,4 @@
 
 test/*.exe
 test/*.s
+test/*.o
