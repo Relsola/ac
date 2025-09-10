@@ -10,7 +10,7 @@ foreach(test_src ${TEST_SRC})
     # 1. 预处理并用主编译器生成汇编
     add_custom_command(
         OUTPUT ${test_o}
-        COMMAND ${CMAKE_C_COMPILER} -E -P -C ${test_src} | $<TARGET_FILE:ac> -c -o ${test_o} -
+        COMMAND $<TARGET_FILE:ac> -I${CMAKE_SOURCE_DIR}/test -c -o ${test_o} ${test_src}
         DEPENDS ${test_src} $<TARGET_FILE:ac>
         COMMENT "Generating ${test_o}"
         VERBATIM

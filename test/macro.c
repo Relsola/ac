@@ -316,11 +316,13 @@ int main() {
 #include M13
   ASSERT(3, foo);
 
-// #define M13 < include4.h
-// #include M13 >
-//   ASSERT(4, foo);
+#define M13 < include4.h
+#include M13 >
+  ASSERT(4, foo);
 
 #undef foo
+
+  ASSERT(1, __STDC__);
 
   printf("OK\n");
   return 0;

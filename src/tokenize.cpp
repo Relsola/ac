@@ -360,12 +360,14 @@ Token *tokenize(File *file) {
   Token *cur = &head;
 
   at_bol = true;
+  has_space = false;
 
   while (*p) {
     // Skip line comments.
     if (startswith(p, "//")) {
       p += 2;
       while (*p != '\n') p++;
+      has_space = true;
       continue;
     }
 
@@ -374,6 +376,7 @@ Token *tokenize(File *file) {
       char *q = strstr(p + 2, "*/");
       if (!q) error_at(p, "unclosed block comment");
       p = q + 2;
+      has_space = true;
       continue;
     }
 
@@ -381,12 +384,14 @@ Token *tokenize(File *file) {
     if (*p == '\n') {
       p++;
       at_bol = true;
+      has_space = false;
       continue;
     }
 
     // Skip whitespace characters.
     if (isspace(*p)) {
       p++;
+      has_space = true;
       continue;
     }
 
