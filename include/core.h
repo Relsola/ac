@@ -375,4 +375,6 @@ Token *preprocess(Token *tok);
 // main.c
 //
 
+bool file_exists(char *path);
+
 extern char *base_file;
