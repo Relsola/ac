@@ -14,6 +14,7 @@
 #include <unistd.h>
 
 #include <algorithm>
+#include <functional>
 #include <string>
 #include <vector>
 
@@ -124,6 +125,7 @@ class Token {
   bool at_bol = false;         // True if this token is at beginning of line
   bool has_space = false;      // True if this token follows a space character
   Hideset *hideset = nullptr;  // For macro expansion
+  Token *origin = nullptr;     // If this is expanded from a macro, the original token
 
   Token() = default;
 
