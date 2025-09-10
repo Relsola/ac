@@ -1,5 +1,7 @@
 #include "core.h"
 
+std::vector<char *> include_paths;
+
 static bool opt_E;
 static bool opt_S;
 static bool opt_c;
@@ -18,7 +20,13 @@ static void usage(int status) {
   exit(status);
 }
 
-static bool take_arg(char *arg) { return !strcmp(arg, "-o"); }
+static bool take_arg(char *arg) {
+  char *x[] = {"-o", "-I"};
+
+  for (int i = 0; i < sizeof(x) / sizeof(*x); i++)
+    if (!strcmp(arg, x[i])) return true;
+  return false;
+}
 
 static void parse_args(int argc, char **argv) {
   // Make sure that all command line options that take an argument
@@ -62,6 +70,11 @@ static void parse_args(int argc, char **argv) {
 
     if (!strcmp(argv[i], "-E")) {
       opt_E = true;
+      continue;
+    }
+
+    if (!strncmp(argv[i], "-I", 2)) {
+      include_paths.push_back(argv[i] + 2);
       continue;
     }
 

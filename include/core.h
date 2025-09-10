@@ -377,4 +377,5 @@ Token *preprocess(Token *tok);
 
 bool file_exists(char *path);
 
+extern std::vector<char *> include_paths;
 extern char *base_file;
