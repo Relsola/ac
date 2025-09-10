@@ -352,7 +352,7 @@ static void add_line_numbers(Token *tok) {
 }
 
 // Tokenize a given string and returns new tokens.
-static Token *tokenize(File *file) {
+Token *tokenize(File *file) {
   current_file = file;
 
   char *p = file->contents;
@@ -473,7 +473,7 @@ static char *read_file(char *path) {
 
 std::vector<File *> get_input_files() { return input_files; }
 
-static File *new_file(char *name, int file_no, char *contents) {
+File *new_file(char *name, int file_no, char *contents) {
   File *file = new File();
   file->name = name;
   file->file_no = file_no;

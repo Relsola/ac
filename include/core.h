@@ -351,6 +351,10 @@ void convert_keywords(Token *tok);
 
 std::vector<File *> get_input_files();
 
+File *new_file(char *name, int file_no, char *contents);
+
+Token *tokenize(File *file);
+
 Token *tokenize_file(char *filename);
 
 Obj *parse(Token *tok);
