@@ -21,6 +21,7 @@ class Type;
 class Node;
 class Member;
 class Relocation;
+struct Hideset;
 
 //
 // strings.c
@@ -118,9 +119,10 @@ class Token {
   Type *ty = nullptr;                  // Used if TK_NUM or TK_STR
   char *str = nullptr;                 // String literal contents including terminating '\0'
 
-  File *file = nullptr;  // Source location
-  int line_no = 0;       // Line number
-  bool at_bol = false;   // True if this token is at beginning of line
+  File *file = nullptr;        // Source location
+  int line_no = 0;             // Line number
+  bool at_bol = false;         // True if this token is at beginning of line
+  Hideset *hideset = nullptr;  // For macro expansion
 
   Token() = default;
 
