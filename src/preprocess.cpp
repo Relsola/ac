@@ -18,6 +18,8 @@ struct CondIncl {
 static Macro *macros = nullptr;
 static CondIncl *cond_incl = nullptr;
 
+static Token *preprocess2(Token *tok);
+
 static bool is_hash(Token *tok) { return tok->at_bol && tok->equal("#"); }
 
 // Some preprocessor directives such as #include allow extraneous
@@ -102,6 +104,7 @@ static Token *copy_line(Token **rest, Token *tok) {
 static long eval_const_expr(Token **rest, Token *tok) {
   Token *start = tok;
   Token *expr = copy_line(rest, tok->next);
+  expr = preprocess2(expr);
 
   if (expr->kind == TokenKind::TK_EOF) error_tok(start, "no expression");
 
