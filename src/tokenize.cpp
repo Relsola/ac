@@ -9,6 +9,9 @@ static std::vector<File *> input_files;
 // True if the current position is at the beginning of a line
 static bool at_bol;
 
+// True if the current position follows a space character
+static bool has_space;
+
 // Reports an error and exit.
 void error(char *fmt, ...) {
   va_list ap;
@@ -73,7 +76,9 @@ static Token *new_token(TokenKind kind, char *start, char *end) {
   Token *tok = new Token(kind, start, end);
   tok->file = current_file;
   tok->at_bol = at_bol;
-  at_bol = false;
+  tok->has_space = has_space;
+
+  at_bol = has_space = false;
   return tok;
 }
 

@@ -122,6 +122,7 @@ class Token {
   File *file = nullptr;        // Source location
   int line_no = 0;             // Line number
   bool at_bol = false;         // True if this token is at beginning of line
+  bool has_space = false;      // True if this token follows a space character
   Hideset *hideset = nullptr;  // For macro expansion
 
   Token() = default;
