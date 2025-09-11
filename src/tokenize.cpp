@@ -232,8 +232,8 @@ static Token *read_char_literal(char *start, char *quote) {
   return tok;
 }
 
-static Token *read_int_literal(char *start) {
-  char *p = start;
+static bool convert_pp_int(Token *tok) {
+  char *p = tok->loc;
 
   // Read a binary, octal, decimal or hexadecimal number.
   int base = 10;
@@ -272,6 +272,8 @@ static Token *read_int_literal(char *start) {
     u = true;
   }
 
+  if (p != tok->loc + tok->len) return false;
+
   // Infer a type.
   Type *ty;
   if (base == 10) {
@@ -300,20 +302,26 @@ static Token *read_int_literal(char *start) {
       ty = Type::ty_int;
   }
 
-  Token *tok = new_token(TokenKind::TK_NUM, start, p);
+  tok->kind = TokenKind::TK_NUM;
   tok->val = val;
   tok->ty = ty;
-  return tok;
+  return true;
 }
 
-static Token *read_number(char *start) {
+// The definition of the numeric literal at the preprocessing stage
+// is more relaxed than the definition of that at the later stages.
+// In order to handle that, a numeric literal is tokenized as a
+// "pp-number" token first and then converted to a regular number
+// token after preprocessing.
+//
+// This function converts a pp-number token to a regular number token.
+static void convert_pp_number(Token *tok) {
   // Try to parse as an integer constant.
-  Token *tok = read_int_literal(start);
-  if (!strchr(".eEfF", start[tok->len])) return tok;
+  if (convert_pp_int(tok)) return;
 
   // If it's not an integer, it must be a floating point constant.
   char *end;
-  double val = strtod(start, &end);
+  double val = strtod(tok->loc, &end);
 
   Type *ty;
   if (*end == 'f' || *end == 'F') {
@@ -326,15 +334,20 @@ static Token *read_number(char *start) {
     ty = Type::ty_double;
   }
 
-  tok = new_token(TokenKind::TK_NUM, start, end);
+  if (tok->loc + tok->len != end) error_tok(tok, "invalid numeric constant");
+
+  tok->kind = TokenKind::TK_NUM;
   tok->fval = val;
   tok->ty = ty;
-  return tok;
 }
 
-void convert_keywords(Token *tok) {
-  for (Token *t = tok; t->kind != TokenKind::TK_EOF; t = t->next)
-    if (is_keyword(t)) t->kind = TokenKind::TK_KEYWORD;
+void convert_pp_tokens(Token *tok) {
+  for (Token *t = tok; t->kind != TokenKind::TK_EOF; t = t->next) {
+    if (is_keyword(t))
+      t->kind = TokenKind::TK_KEYWORD;
+    else if (t->kind == TokenKind::TK_PP_NUM)
+      convert_pp_number(t);
+  }
 }
 
 // Initialize line info for all tokens.
@@ -397,8 +410,16 @@ Token *tokenize(File *file) {
 
     // Numeric literal
     if (isdigit(*p) || (*p == '.' && isdigit(p[1]))) {
-      cur = cur->next = read_number(p);
-      p += cur->len;
+      char *q = p++;
+      for (;;) {
+        if (p[0] && p[1] && strchr("eEpP", p[0]) && strchr("+-", p[1]))
+          p += 2;
+        else if (isalnum(*p) || *p == '.')
+          p++;
+        else
+          break;
+      }
+      cur = cur->next = new_token(TokenKind::TK_PP_NUM, q, p);
       continue;
     }
 

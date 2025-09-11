@@ -35,6 +35,7 @@ enum class TokenKind : int {
   TK_KEYWORD,  // Keywords
   TK_STR,      // String literals
   TK_NUM,      // Numeric literals
+  TK_PP_NUM,   // Preprocessing numbers
   TK_EOF,      // End-of-file markers
 };
 
@@ -351,7 +352,7 @@ void error_tok(Token *tok, char *fmt, ...);
 
 void warn_tok(Token *tok, char *fmt, ...);
 
-void convert_keywords(Token *tok);
+void convert_pp_tokens(Token *tok);
 
 std::vector<File *> get_input_files();
 
