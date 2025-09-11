@@ -374,6 +374,8 @@ void codegen(Obj *prog, FILE *out);
 // preprocess.c
 //
 
+void init_macros(void);
+void define_macro(char *name, char *buf);
 Token *preprocess(Token *tok);
 
 //
