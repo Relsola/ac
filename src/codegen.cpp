@@ -295,19 +295,69 @@ static void cast(Type *from, Type *to) {
   if (cast_table[t1][t2]) println("  %s", cast_table[t1][t2]);
 }
 
+// Structs or unions equal or smaller than 16 bytes are passed
+// using up to two registers.
+//
+// If the first 8 bytes contains only floating-point type members,
+// they are passed in an XMM register. Otherwise, they are passed
+// in a general-purpose register.
+//
+// If a struct/union is larger than 8 bytes, the same rule is
+// applied to the the next 8 byte chunk.
+//
+// This function returns true if `ty` has only floating-point
+// members in its byte range [lo, hi).
+static bool has_flonum(Type *ty, int lo, int hi, int offset) {
+  if (ty->kind == TypeKind::TY_STRUCT || ty->kind == TypeKind::TY_UNION) {
+    for (Member *mem = ty->members; mem; mem = mem->next)
+      if (!has_flonum(mem->ty, lo, hi, offset + mem->offset)) return false;
+    return true;
+  }
+
+  if (ty->kind == TypeKind::TY_ARRAY) {
+    for (int i = 0; i < ty->array_len; i++)
+      if (!has_flonum(ty->base, lo, hi, offset + ty->base->size * i)) return false;
+    return true;
+  }
+
+  return offset < lo || hi <= offset || ty->is_flonum();
+}
+
+static bool has_flonum1(Type *ty) { return has_flonum(ty, 0, 8, 0); }
+
+static bool has_flonum2(Type *ty) { return has_flonum(ty, 8, 16, 0); }
+
+static void push_struct(Type *ty) {
+  int sz = align_to(ty->size, 8);
+  println("  sub $%d, %%rsp", sz);
+  depth += sz / 8;
+
+  for (int i = 0; i < ty->size; i++) {
+    println("  mov %d(%%rax), %%r10b", i);
+    println("  mov %%r10b, %d(%%rsp)", i);
+  }
+}
+
 static void push_args2(Node *args, bool first_pass) {
   if (!args) return;
-
   push_args2(args->next, first_pass);
 
   if ((first_pass && !args->pass_by_stack) || (!first_pass && args->pass_by_stack)) return;
 
   gen_expr(args);
 
-  if (args->ty->is_flonum())
-    pushf();
-  else
-    push();
+  switch (args->ty->kind) {
+    case TypeKind::TY_STRUCT:
+    case TypeKind::TY_UNION:
+      push_struct(args->ty);
+      break;
+    case TypeKind::TY_FLOAT:
+    case TypeKind::TY_DOUBLE:
+      pushf();
+      break;
+    default:
+      push();
+  }
 }
 
 // Load function call arguments. Arguments are already evaluated and
@@ -333,16 +383,39 @@ static int push_args(Node *args) {
   int stack = 0, gp = 0, fp = 0;
 
   for (Node *arg = args; arg; arg = arg->next) {
-    if (arg->ty->is_flonum()) {
-      if (fp++ >= FP_MAX) {
-        arg->pass_by_stack = true;
-        stack++;
-      }
-    } else {
-      if (gp++ >= GP_MAX) {
-        arg->pass_by_stack = true;
-        stack++;
-      }
+    Type *ty = arg->ty;
+
+    switch (ty->kind) {
+      case TypeKind::TY_STRUCT:
+      case TypeKind::TY_UNION:
+        if (ty->size > 16) {
+          arg->pass_by_stack = true;
+          stack += align_to(ty->size, 8) / 8;
+        } else {
+          bool fp1 = has_flonum1(ty);
+          bool fp2 = has_flonum2(ty);
+
+          if (fp + fp1 + fp2 < FP_MAX && gp + !fp1 + !fp2 < GP_MAX) {
+            fp = fp + fp1 + fp2;
+            gp = gp + !fp1 + !fp2;
+          } else {
+            arg->pass_by_stack = true;
+            stack += align_to(ty->size, 8) / 8;
+          }
+        }
+        break;
+      case TypeKind::TY_FLOAT:
+      case TypeKind::TY_DOUBLE:
+        if (fp++ >= FP_MAX) {
+          arg->pass_by_stack = true;
+          stack++;
+        }
+        break;
+      default:
+        if (gp++ >= GP_MAX) {
+          arg->pass_by_stack = true;
+          stack++;
+        }
     }
   }
 
@@ -502,10 +575,37 @@ static void gen_expr(Node *node) {
 
       int gp = 0, fp = 0;
       for (Node *arg = node->args; arg; arg = arg->next) {
-        if (arg->ty->is_flonum()) {
-          if (fp < FP_MAX) popf(fp++);
-        } else {
-          if (gp < GP_MAX) pop(argreg64[gp++]);
+        Type *ty = arg->ty;
+
+        switch (ty->kind) {
+          case TypeKind::TY_STRUCT:
+          case TypeKind::TY_UNION: {
+            if (ty->size > 16) continue;
+
+            bool fp1 = has_flonum1(ty);
+            bool fp2 = has_flonum2(ty);
+
+            if (fp + fp1 + fp2 < FP_MAX && gp + !fp1 + !fp2 < GP_MAX) {
+              if (fp1)
+                popf(fp++);
+              else
+                pop(argreg64[gp++]);
+
+              if (ty->size > 8) {
+                if (fp2)
+                  popf(fp++);
+                else
+                  pop(argreg64[gp++]);
+              }
+            }
+            break;
+          }
+          case TypeKind::TY_FLOAT:
+          case TypeKind::TY_DOUBLE:
+            if (fp < FP_MAX) popf(fp++);
+            break;
+          default:
+            if (gp < GP_MAX) pop(argreg64[gp++]);
         }
       }
 
