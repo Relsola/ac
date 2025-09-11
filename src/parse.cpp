@@ -149,6 +149,8 @@ static bool is_function(Token *tok);
 static Token *function(Token *tok, Type *basety, VarAttr *attr);
 static Token *global_variable(Token *tok, Type *basety, VarAttr *attr);
 
+static int align_down(int n, int align) { return align_to(n - align + 1, align); }
+
 static void enter_scope() {
   Scope *sc = new Scope();
   sc->next = scope;
@@ -1923,6 +1925,12 @@ static void struct_members(Token **rest, Token *tok, Type *ty) {
       mem->name = mem->ty->name;
       mem->idx = idx++;
       mem->align = attr.align ? attr.align : mem->ty->align;
+
+      if (tok->consume(&tok, ":")) {
+        mem->is_bitfield = true;
+        mem->bit_width = const_expr(&tok, tok);
+      }
+
       cur = cur->next = mem;
     }
   }
@@ -1990,15 +1998,26 @@ static Type *struct_decl(Token **rest, Token *tok) {
   if (ty->size < 0) return ty;
 
   // Assign offsets within the struct to members.
-  int offset = 0;
+  int bits = 0;
+
   for (Member *mem = ty->members; mem; mem = mem->next) {
-    offset = align_to(offset, mem->align);
-    mem->offset = offset;
-    offset += mem->ty->size;
+    if (mem->is_bitfield) {
+      int sz = mem->ty->size;
+      if (bits / (sz * 8) != (bits + mem->bit_width - 1) / (sz * 8)) bits = align_to(bits, sz * 8);
+
+      mem->offset = align_down(bits / 8, sz);
+      mem->bit_offset = bits % (sz * 8);
+      bits += mem->bit_width;
+    } else {
+      bits = align_to(bits, mem->align * 8);
+      mem->offset = bits / 8;
+      bits += mem->ty->size * 8;
+    }
 
     if (ty->align < mem->align) ty->align = mem->align;
   }
-  ty->size = align_to(offset, ty->align);
+
+  ty->size = align_to(bits, ty->align * 8) / 8;
 
   return ty;
 }

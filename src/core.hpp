@@ -335,6 +335,11 @@ class Member {
   int align = 0;
   int offset = 0;
 
+  // Bitfield
+  bool is_bitfield = false;
+  int bit_offset = 0;
+  int bit_width = 0;
+
   Member() = default;
 };
 
