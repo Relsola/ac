@@ -110,6 +110,12 @@ static void gen_addr(Node *node) {
       gen_addr(node->lhs);
       println("  add $%d, %%rax", node->member->offset);
       return;
+    case NodeKind::ND_FUNCALL:
+      if (node->ret_buffer) {
+        gen_expr(node);
+        return;
+      }
+      break;
   }
 
   error_tok(node->tok, "not an lvalue");
@@ -379,10 +385,15 @@ static void push_args2(Node *args, bool first_pass) {
 //
 // - If a function is variadic, set the number of floating-point type
 //   arguments to RAX.
-static int push_args(Node *args) {
+static int push_args(Node *node) {
   int stack = 0, gp = 0, fp = 0;
 
-  for (Node *arg = args; arg; arg = arg->next) {
+  // If the return type is a large struct/union, the caller passes
+  // a pointer to a buffer as if it were the first argument.
+  if (node->ret_buffer && node->ty->size > 16) gp++;
+
+  // Load as many arguments to the registers as possible.
+  for (Node *arg = node->args; arg; arg = arg->next) {
     Type *ty = arg->ty;
 
     switch (ty->kind) {
@@ -425,9 +436,52 @@ static int push_args(Node *args) {
     stack++;
   }
 
-  push_args2(args, true);
-  push_args2(args, false);
+  push_args2(node->args, true);
+  push_args2(node->args, false);
+
+  // If the return type is a large struct/union, the caller passes
+  // a pointer to a buffer as if it were the first argument.
+  if (node->ret_buffer && node->ty->size > 16) {
+    println("  lea %d(%%rbp), %%rax", node->ret_buffer->offset);
+    push();
+  }
+
   return stack;
+}
+
+static void copy_ret_buffer(Obj *var) {
+  Type *ty = var->ty;
+  int gp = 0, fp = 0;
+
+  if (has_flonum1(ty)) {
+    if (ty->size == 4)
+      println("  movss %%xmm0, %d(%%rbp)", var->offset);
+    else
+      println("  movsd %%xmm0, %d(%%rbp)", var->offset);
+    fp++;
+  } else {
+    for (int i = 0; i < std::min(8, ty->size); i++) {
+      println("  mov %%al, %d(%%rbp)", var->offset + i);
+      println("  shr $8, %%rax");
+    }
+    gp++;
+  }
+
+  if (ty->size > 8) {
+    if (has_flonum2(ty)) {
+      if (ty->size == 12)
+        println("  movss %%xmm%d, %d(%%rbp)", fp, var->offset + 8);
+      else
+        println("  movsd %%xmm%d, %d(%%rbp)", fp, var->offset + 8);
+    } else {
+      const char *reg1 = (gp == 0) ? "%al" : "%dl";
+      const char *reg2 = (gp == 0) ? "%rax" : "%rdx";
+      for (int i = 8; i < std::min(16, ty->size); i++) {
+        println("  mov %s, %d(%%rbp)", reg1, var->offset + i);
+        println("  shr $8, %s", reg2);
+      }
+    }
+  }
 }
 
 // Generate code for a given node.
@@ -570,10 +624,15 @@ static void gen_expr(Node *node) {
       return;
     }
     case NodeKind::ND_FUNCALL: {
-      int stack_args = push_args(node->args);
+      int stack_args = push_args(node);
       gen_expr(node->lhs);
 
       int gp = 0, fp = 0;
+
+      // If the return type is a large struct/union, the caller passes
+      // a pointer to a buffer as if it were the first argument.
+      if (node->ret_buffer && node->ty->size > 16) pop(argreg64[gp++]);
+
       for (Node *arg = node->args; arg; arg = arg->next) {
         Type *ty = arg->ty;
 
@@ -636,6 +695,14 @@ static void gen_expr(Node *node) {
             println("  movswl %%ax, %%eax");
           return;
       }
+
+      // If the return type is a small struct, a value is returned
+      // using up to two registers.
+      if (node->ret_buffer && node->ty->size <= 16) {
+        copy_ret_buffer(node->ret_buffer);
+        println("  lea %d(%%rbp), %%rax", node->ret_buffer->offset);
+      }
+
       return;
     }
   }
