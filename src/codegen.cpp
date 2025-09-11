@@ -484,6 +484,57 @@ static void copy_ret_buffer(Obj *var) {
   }
 }
 
+static void copy_struct_reg(void) {
+  Type *ty = current_fn->ty->return_ty;
+  int gp = 0, fp = 0;
+
+  println("  mov %%rax, %%rdi");
+
+  if (has_flonum(ty, 0, 8, 0)) {
+    if (ty->size == 4)
+      println("  movss (%%rdi), %%xmm0");
+    else
+      println("  movsd (%%rdi), %%xmm0");
+    fp++;
+  } else {
+    println("  mov $0, %%rax");
+    for (int i = std::min(8, ty->size) - 1; i >= 0; i--) {
+      println("  shl $8, %%rax");
+      println("  mov %d(%%rdi), %%al", i);
+    }
+    gp++;
+  }
+
+  if (ty->size > 8) {
+    if (has_flonum(ty, 8, 16, 0)) {
+      if (ty->size == 4)
+        println("  movss 8(%%rdi), %%xmm%d", fp);
+      else
+        println("  movsd 8(%%rdi), %%xmm%d", fp);
+    } else {
+      const char *reg1 = (gp == 0) ? "%al" : "%dl";
+      const char *reg2 = (gp == 0) ? "%rax" : "%rdx";
+      println("  mov $0, %s", reg2);
+      for (int i = std::min(16, ty->size) - 1; i >= 8; i--) {
+        println("  shl $8, %s", reg2);
+        println("  mov %d(%%rdi), %s", i, reg1);
+      }
+    }
+  }
+}
+
+static void copy_struct_mem(void) {
+  Type *ty = current_fn->ty->return_ty;
+  Obj *var = current_fn->params;
+
+  println("  mov %d(%%rbp), %%rdi", var->offset);
+
+  for (int i = 0; i < ty->size; i++) {
+    println("  mov %d(%%rax), %%dl", i);
+    println("  mov %%dl, %d(%%rdi)", i);
+  }
+}
+
 // Generate code for a given node.
 static void gen_expr(Node *node) {
   println("  .loc %d %d", node->tok->file->file_no, node->tok->line_no);
@@ -920,7 +971,18 @@ static void gen_stmt(Node *node) {
       gen_stmt(node->lhs);
       return;
     case NodeKind::ND_RETURN:
-      if (node->lhs) gen_expr(node->lhs);
+      if (node->lhs) {
+        gen_expr(node->lhs);
+
+        Type *ty = node->lhs->ty;
+        if (ty->kind == TypeKind::TY_STRUCT || ty->kind == TypeKind::TY_UNION) {
+          if (ty->size <= 16)
+            copy_struct_reg();
+          else
+            copy_struct_mem();
+        }
+      }
+
       println("  jmp .L.return.%s", current_fn->name);
       return;
     case NodeKind::ND_EXPR_STMT:

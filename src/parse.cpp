@@ -1150,7 +1150,11 @@ static Node *stmt(Token **rest, Token *tok) {
     *rest = tok->skip(";");
 
     add_type(exp);
-    node->lhs = new_cast(exp, current_fn->ty->return_ty);
+    Type *ty = current_fn->ty->return_ty;
+    if (ty->kind != TypeKind::TY_STRUCT && ty->kind != TypeKind::TY_UNION)
+      exp = new_cast(exp, current_fn->ty->return_ty);
+
+    node->lhs = exp;
     return node;
   }
 
@@ -2321,6 +2325,13 @@ static Token *function(Token *tok, Type *basety, VarAttr *attr) {
   locals = nullptr;
   enter_scope();
   create_param_lvars(ty->params);
+
+  // A buffer for a struct/union return value is passed
+  // as the hidden first parameter.
+  Type *rty = ty->return_ty;
+  if ((rty->kind == TypeKind::TY_STRUCT || rty->kind == TypeKind::TY_UNION) && rty->size > 16)
+    new_lvar("", Type::pointer_to(rty));
+
   fn->params = locals;
   if (ty->is_variadic) fn->va_area = new_lvar("__va_area__", Type::array_of(Type::ty_char, 136));
 
