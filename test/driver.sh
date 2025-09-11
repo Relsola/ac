@@ -99,4 +99,8 @@ check -D
 echo foo | $ac -Dfoo=bar -E - | grep -q bar
 check -D
 
+# -U
+echo foo | $ac -Dfoo=bar -Ufoo -E - | grep -q foo
+check -U
+
 echo OK
