@@ -1932,7 +1932,13 @@ static Node *unary(Token **rest, Token *tok) {
 
   if (tok->equal("-")) return new_unary(NodeKind::ND_NEG, cast(rest, tok->next), tok);
 
-  if (tok->equal("&")) return new_unary(NodeKind::ND_ADDR, cast(rest, tok->next), tok);
+  if (tok->equal("&")) {
+    Node *lhs = cast(rest, tok->next);
+    add_type(lhs);
+    if (lhs->kind == NodeKind::ND_MEMBER && lhs->member->is_bitfield)
+      error_tok(tok, "cannot take address of bitfield");
+    return new_unary(NodeKind::ND_ADDR, lhs, tok);
+  }
 
   if (tok->equal("*")) {
     // [https://www.sigbus.info/n1570#6.5.3.2p4] This is an oddity
