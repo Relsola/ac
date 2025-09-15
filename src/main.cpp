@@ -21,7 +21,7 @@ static void usage(int status) {
 }
 
 static bool take_arg(char *arg) {
-  char *x[] = {"-o", "-I"};
+  char *x[] = {"-o", "-I", "-idirafter"};
 
   for (int i = 0; i < sizeof(x) / sizeof(*x); i++)
     if (!strcmp(arg, x[i])) return true;
@@ -53,6 +53,8 @@ static void parse_args(int argc, char **argv) {
   for (int i = 1; i < argc; i++)
     if (take_arg(argv[i]))
       if (!argv[++i]) usage(1);
+
+  std::vector<char *> idirafter;
 
   for (int i = 1; i < argc; i++) {
     if (!strcmp(argv[i], "-###")) {
@@ -127,6 +129,11 @@ static void parse_args(int argc, char **argv) {
       continue;
     }
 
+    if (!strcmp(argv[i], "-idirafter")) {
+      idirafter.push_back(argv[i++]);
+      continue;
+    }
+
     // These options are ignored for now.
     if (!strncmp(argv[i], "-O", 2) || !strncmp(argv[i], "-W", 2) || !strncmp(argv[i], "-g", 2) ||
         !strncmp(argv[i], "-std=", 5) || !strcmp(argv[i], "-ffreestanding") ||
@@ -139,6 +146,8 @@ static void parse_args(int argc, char **argv) {
 
     input_paths.push_back(argv[i]);
   }
+
+  for (auto &path : idirafter) include_paths.push_back(path);
 
   if (input_paths.size() == 0) error("no input files");
 }
