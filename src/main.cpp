@@ -14,6 +14,8 @@ static bool opt_cc1;
 static bool opt_hash_hash_hash;
 static char *opt_o;
 
+static std::vector<char *> ld_extra_args;
+
 char *base_file;
 static char *output_file;
 
@@ -153,6 +155,11 @@ static void parse_args(int argc, char **argv) {
 
     if (!strncmp(argv[i], "-l", 2)) {
       include_paths.push_back(argv[i]);
+      continue;
+    }
+
+    if (!strcmp(argv[i], "-s")) {
+      ld_extra_args.push_back("-s");
       continue;
     }
 
@@ -407,6 +414,8 @@ static void run_linker(std::vector<char *> *inputs, char *output) {
   arr.push_back("-L/usr/lib/x86_64-redhat-linux");
   arr.push_back("-L/usr/lib");
   arr.push_back("-L/lib");
+
+  for (auto &item : ld_extra_args) arr.push_back(item);
 
   for (auto &item : *inputs) arr.push_back(item);
 
