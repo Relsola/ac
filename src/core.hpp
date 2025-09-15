@@ -183,6 +183,7 @@ class Obj {
   Node *body = nullptr;
   Obj *locals = nullptr;
   Obj *va_area = nullptr;
+  Obj *alloca_bottom = nullptr;
   int stack_size = 0;
 
   // Static inline function

@@ -11,3 +11,4 @@ void exit(int n);
 int ends_with(const char *s1, const char *s2);
 int vsprintf();
 long strlen(char *s);
+void *memcpy(void *dest, void *src, long n);
