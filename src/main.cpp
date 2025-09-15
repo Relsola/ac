@@ -1,8 +1,11 @@
 #include "core.hpp"
 
+enum FileType { FILE_NONE, FILE_C, FILE_ASM, FILE_OBJ };
+
 std::vector<char *> include_paths;
 bool opt_fcommon = true;
 
+static FileType opt_x;
 static std::vector<char *> opt_include;
 static bool opt_E;
 static bool opt_S;
@@ -39,6 +42,13 @@ static void add_default_include_paths(char *argv0) {
   include_paths.push_back("/usr/local/include");
   include_paths.push_back("/usr/include/x86_64-linux-gnu");
   include_paths.push_back("/usr/include");
+}
+
+static FileType parse_opt_x(char *s) {
+  if (!strcmp(s, "c")) return FILE_C;
+  if (!strcmp(s, "assembler")) return FILE_ASM;
+  if (!strcmp(s, "none")) return FILE_NONE;
+  error("<command line>: unknown argument for -x: %s", s);
 }
 
 static void define(char *str) {
@@ -128,6 +138,16 @@ static void parse_args(int argc, char **argv) {
 
     if (!strcmp(argv[i], "-include")) {
       opt_include.push_back(argv[++i]);
+      continue;
+    }
+
+    if (!strcmp(argv[i], "-x")) {
+      opt_x = parse_opt_x(argv[++i]);
+      continue;
+    }
+
+    if (!strncmp(argv[i], "-x", 2)) {
+      opt_x = parse_opt_x(argv[i] + 2);
       continue;
     }
 
@@ -394,6 +414,17 @@ static void run_linker(std::vector<char *> *inputs, char *output) {
   run_subprocess(arr.data());
 }
 
+static FileType get_file_type(char *filename) {
+  if (endswith(filename, ".o")) return FILE_OBJ;
+
+  if (opt_x != FILE_NONE) return opt_x;
+
+  if (endswith(filename, ".c")) return FILE_C;
+  if (endswith(filename, ".s")) return FILE_ASM;
+
+  error("<command line>: unknown file extension: %s", filename);
+}
+
 int main(int argc, char **argv) {
   atexit(cleanup);
   init_macros();
@@ -419,20 +450,19 @@ int main(int argc, char **argv) {
     else
       output = replace_extn(input, ".o");
 
+    FileType type = get_file_type(input);
+
     // Handle .o
-    if (endswith(input, ".o")) {
+    if (type == FILE_OBJ) {
       ld_args.push_back(input);
       continue;
     }
 
     // Handle .s
-    if (endswith(input, ".s")) {
+    if (type == FILE_ASM) {
       if (!opt_S) assemble(input, output);
       continue;
     }
-
-    // Handle .c
-    if (!endswith(input, ".c") && strcmp(input, "-")) error("unknown file extension: %s", input);
 
     // Just preprocess
     if (opt_E) {

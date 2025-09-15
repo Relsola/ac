@@ -25,7 +25,7 @@ $ac --help 2>&1 | grep -q ac
 check --help
 
 # -S
-echo 'int main() {}' | $ac -S -o - - | grep -q 'main:'
+echo 'int main() {}' | $ac -S -o- -xc - | grep -q 'main:'
 check -S
 
 # Default output file
@@ -56,7 +56,7 @@ check 'multiple input files'
 
 # Run linker
 rm -f $tmp/foo
-echo 'int main() { return 0; }' | $ac -o $tmp/foo -
+echo 'int main() { return 0; }' | $ac -o $tmp/foo -xc -xc -
 $tmp/foo
 check linker
 
@@ -77,30 +77,30 @@ check a.out
 
 # -E
 echo foo > $tmp/out
-echo "#include \"$tmp/out\"" | $ac -E - | grep -q foo
+echo "#include \"$tmp/out\"" | $ac -E -xc - | grep -q foo
 check -E
 
 echo foo > $tmp/out1
-echo "#include \"$tmp/out1\"" | $ac -E -o $tmp/out2 -
+echo "#include \"$tmp/out1\"" | $ac -E -xc -o $tmp/out2 -xc -
 cat $tmp/out2 | grep -q foo
 check '-E and -o'
 
 # -I
 mkdir $tmp/dir
 echo foo > $tmp/dir/i-option-test
-echo "#include \"i-option-test\"" | $ac -I$tmp/dir -E - | grep -q foo
+echo "#include \"i-option-test\"" | $ac -I$tmp/dir -E -xc - | grep -q foo
 check -I
 
 # -D
-echo foo | $ac -Dfoo -E - | grep -q 1
+echo foo | $ac -Dfoo -E -xc - | grep -q 1
 check -D
 
 # -D
-echo foo | $ac -Dfoo=bar -E - | grep -q bar
+echo foo | $ac -Dfoo=bar -E -xc - | grep -q bar
 check -D
 
 # -U
-echo foo | $ac -Dfoo=bar -Ufoo -E - | grep -q foo
+echo foo | $ac -Dfoo=bar -Ufoo -E -xc - | grep -q foo
 check -U
 
 # ignored options
@@ -110,7 +110,7 @@ $ac -c -O -Wall -g -std=c11 -ffreestanding -fno-builtin \
 check 'ignored options'
 
 # BOM marker
-printf '\xef\xbb\xbfxyz\n' | $ac -E -o- - | grep -q '^xyz'
+printf '\xef\xbb\xbfxyz\n' | $ac -E -o- -xc - | grep -q '^xyz'
 check 'BOM marker'
 
 # Inline functions
@@ -125,67 +125,77 @@ echo 'int foo(); int main() { foo(); }' > $tmp/inline2.c
 $ac -o /dev/null $tmp/inline1.c $tmp/inline2.c
 check inline
 
-echo 'static inline void f1() {}' | $ac -o- -S - | grep -v -q f1:
+echo 'static inline void f1() {}' | $ac -o- -S -xc - | grep -v -q f1:
 check inline
 
-echo 'static inline void f1() {} void foo() { f1(); }' | $ac -o- -S - | grep -q f1:
+echo 'static inline void f1() {} void foo() { f1(); }' | $ac -o- -S -xc - | grep -q f1:
 check inline
 
-echo 'static inline void f1() {} static inline void f2() { f1(); } void foo() { f1(); }' | $ac -o- -S - | grep -q f1:
+echo 'static inline void f1() {} static inline void f2() { f1(); } void foo() { f1(); }' | $ac -o- -S -xc - | grep -q f1:
 check inline
 
-echo 'static inline void f1() {} static inline void f2() { f1(); } void foo() { f1(); }' | $ac -o- -S - | grep -v -q f2:
+echo 'static inline void f1() {} static inline void f2() { f1(); } void foo() { f1(); }' | $ac -o- -S -xc - | grep -v -q f2:
 check inline
 
-echo 'static inline void f1() {} static inline void f2() { f1(); } void foo() { f2(); }' | $ac -o- -S - | grep -q f1:
+echo 'static inline void f1() {} static inline void f2() { f1(); } void foo() { f2(); }' | $ac -o- -S -xc - | grep -q f1:
 check inline
 
-echo 'static inline void f1() {} static inline void f2() { f1(); } void foo() { f2(); }' | $ac -o- -S - | grep -q f2:
+echo 'static inline void f1() {} static inline void f2() { f1(); } void foo() { f2(); }' | $ac -o- -S -xc - | grep -q f2:
 check inline
 
-echo 'static inline void f2(); static inline void f1() { f2(); } static inline void f2() { f1(); } void foo() {}' | $ac -o- -S - | grep -v -q f1:
+echo 'static inline void f2(); static inline void f1() { f2(); } static inline void f2() { f1(); } void foo() {}' | $ac -o- -S -xc - | grep -v -q f1:
 check inline
 
-echo 'static inline void f2(); static inline void f1() { f2(); } static inline void f2() { f1(); } void foo() {}' | $ac -o- -S - | grep -v -q f2:
+echo 'static inline void f2(); static inline void f1() { f2(); } static inline void f2() { f1(); } void foo() {}' | $ac -o- -S -xc - | grep -v -q f2:
 check inline
 
-echo 'static inline void f2(); static inline void f1() { f2(); } static inline void f2() { f1(); } void foo() { f1(); }' | $ac -o- -S - | grep -q f1:
+echo 'static inline void f2(); static inline void f1() { f2(); } static inline void f2() { f1(); } void foo() { f1(); }' | $ac -o- -S -xc - | grep -q f1:
 check inline
 
-echo 'static inline void f2(); static inline void f1() { f2(); } static inline void f2() { f1(); } void foo() { f1(); }' | $ac -o- -S - | grep -q f2:
+echo 'static inline void f2(); static inline void f1() { f2(); } static inline void f2() { f1(); } void foo() { f1(); }' | $ac -o- -S -xc - | grep -q f2:
 check inline
 
-echo 'static inline void f2(); static inline void f1() { f2(); } static inline void f2() { f1(); } void foo() { f2(); }' | $ac -o- -S - | grep -q f1:
+echo 'static inline void f2(); static inline void f1() { f2(); } static inline void f2() { f1(); } void foo() { f2(); }' | $ac -o- -S -xc - | grep -q f1:
 check inline
 
-echo 'static inline void f2(); static inline void f1() { f2(); } static inline void f2() { f1(); } void foo() { f2(); }' | $ac -o- -S - | grep -q f2:
+echo 'static inline void f2(); static inline void f1() { f2(); } static inline void f2() { f1(); } void foo() { f2(); }' | $ac -o- -S -xc - | grep -q f2:
 check inline
 
 # -idirafter
 mkdir -p $tmp/dir1 $tmp/dir2
 echo foo > $tmp/dir1/idirafter
 echo bar > $tmp/dir2/idirafter
-echo "#include \"idirafter\"" | $ac -I$tmp/dir1 -I$tmp/dir2 -E - | grep -q foo
+echo "#include \"idirafter\"" | $ac -I$tmp/dir1 -I$tmp/dir2 -E -xc - | grep -q foo
 check -idirafter
-echo "#include \"idirafter\"" | $ac -idirafter $tmp/dir1 -I$tmp/dir2 -E - | grep -q bar
+echo "#include \"idirafter\"" | $ac -idirafter $tmp/dir1 -I$tmp/dir2 -E -xc - | grep -q bar
 check -idirafter
 
 # -fcommon
-echo 'int foo;' | $ac -S -o- - | grep -q '\.comm foo'
+echo 'int foo;' | $ac -S -o- -xc - | grep -q '\.comm foo'
 check '-fcommon (default)'
 
-echo 'int foo;' | $ac -fcommon -S -o- - | grep -q '\.comm foo'
+echo 'int foo;' | $ac -fcommon -S -o- -xc - | grep -q '\.comm foo'
 check '-fcommon'
 
 # -fno-common
-echo 'int foo;' | $ac -fno-common -S -o- - | grep -q '^foo:'
+echo 'int foo;' | $ac -fno-common -S -o- -xc - | grep -q '^foo:'
 check '-fno-common'
 
 # -include
 echo foo > $tmp/out.h
-echo bar | $ac -include $tmp/out.h -E -o- - | grep -q -z 'foo.*bar'
+echo bar | $ac -include $tmp/out.h -E -o- -xc - | grep -q -z 'foo.*bar'
 check -include
-echo NULL | $ac -Iinclude -include stdio.h -E -o- - | grep -q 0
+echo NULL | $ac -Iinclude -include stdio.h -E -o- -xc - | grep -q 0
 check -include
+
+# -x
+echo 'int x;' | $ac -c -xc -o $tmp/foo.o -
+check -xc
+echo 'x:' | $ac -c -x assembler -o $tmp/foo.o -
+check '-x assembler'
+
+echo 'int x;' > $tmp/foo.c
+$ac -c -x assembler -x none -o $tmp/foo.o $tmp/foo.c
+check '-x none'
 
 echo OK
