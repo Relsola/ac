@@ -2664,6 +2664,14 @@ static Node *primary(Token **rest, Token *tok) {
     VarScope *sc = find_var(tok);
     *rest = tok->next;
 
+    // For "static inline" function
+    if (sc && sc->var && sc->var->is_function) {
+      if (current_fn)
+        current_fn->refs.push_back(sc->var->name);
+      else
+        sc->var->is_root = true;
+    }
+
     if (sc) {
       if (sc->var) return new_var_node(sc->var, tok);
       if (sc->enum_ty) return new_num(sc->enum_val, tok);
@@ -2740,6 +2748,25 @@ static void resolve_goto_labels(void) {
   gotos = labels = nullptr;
 }
 
+static Obj *find_func(char *name) {
+  Scope *sc = scope;
+  while (sc->next) sc = sc->next;
+
+  for (VarScope *sc2 = sc->vars; sc2; sc2 = sc2->next)
+    if (!strcmp(sc2->name, name) && sc2->var && sc2->var->is_function) return sc2->var;
+  return nullptr;
+}
+
+static void mark_live(Obj *var) {
+  if (!var->is_function || var->is_live) return;
+  var->is_live = true;
+
+  for (auto &item : var->refs) {
+    Obj *fn = find_func(item);
+    if (fn) mark_live(fn);
+  }
+}
+
 static Token *function(Token *tok, Type *basety, VarAttr *attr) {
   Type *ty = declarator(&tok, tok, basety);
   if (!ty->name) error_tok(ty->name_pos, "function name omitted");
@@ -2749,6 +2776,7 @@ static Token *function(Token *tok, Type *basety, VarAttr *attr) {
   fn->is_definition = !tok->consume(&tok, ";");
   fn->is_static = attr->is_static || (attr->is_inline && !attr->is_extern);
   fn->is_inline = attr->is_inline;
+  fn->is_root = !(fn->is_static && fn->is_inline);
 
   if (!fn->is_definition) return tok;
 
@@ -2841,6 +2869,9 @@ Obj *parse(Token *tok) {
     // Global variable
     tok = global_variable(tok, basety, &attr);
   }
+
+  for (Obj *var = globals; var; var = var->next)
+    if (var->is_root) mark_live(var);
 
   return globals;
 }

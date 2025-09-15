@@ -179,6 +179,11 @@ class Obj {
   Obj *va_area = nullptr;
   int stack_size = 0;
 
+  // Static inline function
+  bool is_live = false;
+  bool is_root = false;
+  std::vector<char *> refs;
+
   Obj() = default;
 
   Obj(char *name, Type *ty) : name(name), ty(ty){};
