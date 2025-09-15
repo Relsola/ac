@@ -187,6 +187,9 @@ static void parse_args(int argc, char **argv) {
   for (auto &path : idirafter) include_paths.push_back(path);
 
   if (input_paths.size() == 0) error("no input files");
+
+  // -E implies that the input is the C macro language.
+  if (opt_E) opt_x = FILE_C;
 }
 
 static FILE *open_file(char *path) {
