@@ -172,6 +172,7 @@ class Obj {
   Relocation *rel = nullptr;
 
   // Function
+  bool is_inline = false;
   Obj *params = nullptr;
   Node *body = nullptr;
   Obj *locals = nullptr;

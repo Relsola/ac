@@ -51,6 +51,7 @@ struct VarAttr {
   bool is_typedef = false;
   bool is_static = false;
   bool is_extern = false;
+  bool is_inline = false;
   int align = 0;
 };
 
@@ -347,7 +348,7 @@ static void push_tag_scope(Token *tok, Type *ty) {
 }
 
 // declspec = ("void" | "_Bool" | "char" | "short" | "int" | "long"
-//             | "typedef" | "static" | "extern"
+//             | "typedef" | "static" | "extern" | "inline"
 //             | "signed" | "unsigned"
 //             | struct-decl | union-decl | typedef-name
 //             | enum-specifier | typeof-specifier
@@ -389,18 +390,21 @@ static Type *declspec(Token **rest, Token *tok, VarAttr *attr) {
 
   while (is_typename(tok)) {
     // Handle storage class specifiers.
-    if (tok->equal("typedef") || tok->equal("static") || tok->equal("extern")) {
+    if (tok->equal("typedef") || tok->equal("static") || tok->equal("extern") ||
+        tok->equal("inline")) {
       if (!attr) error_tok(tok, "storage class specifier is not allowed in this context");
 
       if (tok->equal("typedef"))
         attr->is_typedef = true;
       else if (tok->equal("static"))
         attr->is_static = true;
-      else
+      else if (tok->equal("extern"))
         attr->is_extern = true;
+      else
+        attr->is_inline = true;
 
-      if (attr->is_typedef && attr->is_static + attr->is_extern > 1)
-        error_tok(tok, "typedef may not be used together with static or extern");
+      if (attr->is_typedef && attr->is_static + attr->is_extern + attr->is_inline > 1)
+        error_tok(tok, "typedef may not be used together with static, extern or inline");
       tok = tok->next;
       continue;
     }
@@ -1347,7 +1351,7 @@ static bool is_typename(Token *tok) {
       "void",         "_Bool",     "char",     "short",  "int",      "long",     "struct",
       "union",        "enum",      "typedef",  "static", "extern",   "_Alignas", "signed",
       "unsigned",     "const",     "volatile", "auto",   "register", "restrict", "__restrict",
-      "__restrict__", "_Noreturn", "float",    "double", "typeof",
+      "__restrict__", "_Noreturn", "float",    "double", "typeof",   "inline",
   };
 
   for (int i = 0; i < sizeof(kw) / sizeof(*kw); i++)
@@ -2743,7 +2747,8 @@ static Token *function(Token *tok, Type *basety, VarAttr *attr) {
   Obj *fn = new_gvar(get_ident(ty->name), ty);
   fn->is_function = true;
   fn->is_definition = !tok->consume(&tok, ";");
-  fn->is_static = attr->is_static;
+  fn->is_static = attr->is_static || (attr->is_inline && !attr->is_extern);
+  fn->is_inline = attr->is_inline;
 
   if (!fn->is_definition) return tok;
 
