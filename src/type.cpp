@@ -68,7 +68,10 @@ Type *Type::pointer_to(Type *base) {
 }
 
 Type *Type::func_type(Type *return_ty) {
-  Type *ty = new Type(TypeKind::TY_FUNC);
+  // The C spec disallows sizeof(<function type>), but
+  // GCC allows that and the expression is evaluated to 1.
+  Type *ty = new Type(TypeKind::TY_FUNC, 1, 1);
+
   ty->return_ty = return_ty;
   return ty;
 }
