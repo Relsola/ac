@@ -85,6 +85,7 @@ enum class NodeKind : int {
   ND_NUM,        // Integer
   ND_CAST,       // Type cast
   ND_MEMZERO,    // Zero-clear a stack variable
+  ND_ASM,        // "asm"
 };
 
 enum class TypeKind : int {
@@ -236,6 +237,9 @@ class Node {
   // Switch-cases
   Node *case_next = nullptr;
   Node *default_case = nullptr;
+
+  // "asm" string literal
+  char *asm_str = nullptr;
 
   // Variable
   Obj *var = nullptr;
