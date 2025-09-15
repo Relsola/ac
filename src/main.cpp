@@ -1,6 +1,7 @@
 #include "core.hpp"
 
 std::vector<char *> include_paths;
+bool opt_fcommon = true;
 
 static bool opt_E;
 static bool opt_S;
@@ -81,6 +82,16 @@ static void parse_args(int argc, char **argv) {
 
     if (!strcmp(argv[i], "-S")) {
       opt_S = true;
+      continue;
+    }
+
+    if (!strcmp(argv[i], "-fcommon")) {
+      opt_fcommon = true;
+      continue;
+    }
+
+    if (!strcmp(argv[i], "-fno-common")) {
+      opt_fcommon = false;
       continue;
     }
 

@@ -1110,7 +1110,7 @@ static void emit_data(Obj *prog) {
                     : var->align;
     println("  .align %d", align);
 
-    if (var->is_tentative) {
+    if (opt_fcommon && var->is_tentative) {
       println("  .comm %s, %d, %d", var->name, var->ty->size, align);
       continue;
     }
