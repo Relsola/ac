@@ -188,6 +188,7 @@ void add_type(Node *node) {
       node->ty = node->lhs->ty;
       return;
     case NodeKind::ND_VAR:
+    case NodeKind::ND_VLA_PTR:
       node->ty = node->var->ty;
       return;
     case NodeKind::ND_COND:
