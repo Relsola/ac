@@ -2509,12 +2509,55 @@ static Node *funcall(Token **rest, Token *tok, Node *fn) {
   return node;
 }
 
+// generic-selection = "(" assign "," generic-assoc ("," generic-assoc)* ")"
+//
+// generic-assoc = type-name ":" assign
+//               | "default" ":" assign
+static Node *generic_selection(Token **rest, Token *tok) {
+  Token *start = tok;
+  tok = tok->skip("(");
+
+  Node *ctrl = assign(&tok, tok);
+  add_type(ctrl);
+
+  Type *t1 = ctrl->ty;
+  if (t1->kind == TypeKind::TY_FUNC)
+    t1 = Type::pointer_to(t1);
+  else if (t1->kind == TypeKind::TY_ARRAY)
+    t1 = Type::pointer_to(t1->base);
+
+  Node *ret = NULL;
+
+  while (!tok->consume(rest, ")")) {
+    tok = tok->skip(",");
+
+    if (tok->equal("default")) {
+      tok = tok->next->skip(":");
+      Node *node = assign(&tok, tok);
+      if (!ret) ret = node;
+      continue;
+    }
+
+    Type *t2 = type_name(&tok, tok);
+    tok = tok->skip(":");
+    Node *node = assign(&tok, tok);
+    if (Type::is_compatible(t1, t2)) ret = node;
+  }
+
+  if (!ret)
+    error_tok(start,
+              "controlling expression type not compatible with"
+              " any generic association type");
+  return ret;
+}
+
 // primary = "(" "{" stmt+ "}" ")"
 //         | "(" expr ")"
 //         | "sizeof" "(" type-name ")"
 //         | "sizeof" unary
 //         | "_Alignof" "(" type-name ")"
 //         | "_Alignof" unary
+//         | "_Generic" generic-selection
 //         | "__builtin_types_compatible_p" "(" type-name, type-name, ")"
 //         | "__builtin_reg_class" "(" type-name ")"
 //         | ident
@@ -2560,6 +2603,8 @@ static Node *primary(Token **rest, Token *tok) {
     add_type(node);
     return new_ulong(node->ty->align, tok);
   }
+
+  if (tok->equal("_Generic")) return generic_selection(rest, tok->next);
 
   if (tok->equal("__builtin_types_compatible_p")) {
     tok = tok->next->skip("(");
