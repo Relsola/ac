@@ -14,7 +14,7 @@ static Obj *current_fn;
 static void gen_expr(Node *node);
 static void gen_stmt(Node *node);
 
-static void println(char *fmt, ...) {
+__attribute__((format(printf, 1, 2))) static void println(char *fmt, ...) {
   va_list ap;
   va_start(ap, fmt);
   vfprintf(output_file, fmt, ap);

@@ -19,6 +19,10 @@
 #include <string>
 #include <vector>
 
+#ifndef __GNUC__
+#define __attribute__(x)
+#endif
+
 class Type;
 class Node;
 class Member;
@@ -28,7 +32,7 @@ struct Hideset;
 //
 // strings.c
 //
-char *format(char *fmt, ...);
+char *format(char *fmt, ...) __attribute__((format(printf, 1, 2)));
 
 enum class TokenKind : int {
   TK_IDENT,    // Identifiers
@@ -369,13 +373,13 @@ int64_t const_expr(Token **rest, Token *tok);
 
 void add_type(Node *node);
 
-[[noreturn]] void error(char *fmt, ...);
+[[noreturn]] void error(char *fmt, ...) __attribute__((format(printf, 1, 2)));
 
-[[noreturn]] void error_at(char *loc, char *fmt, ...);
+[[noreturn]] void error_at(char *loc, char *fmt, ...) __attribute__((format(printf, 2, 3)));
 
-[[noreturn]] void error_tok(Token *tok, char *fmt, ...);
+[[noreturn]] void error_tok(Token *tok, char *fmt, ...) __attribute__((format(printf, 2, 3)));
 
-void warn_tok(Token *tok, char *fmt, ...);
+void warn_tok(Token *tok, char *fmt, ...) __attribute__((format(printf, 2, 3)));
 
 void convert_pp_tokens(Token *tok);
 
