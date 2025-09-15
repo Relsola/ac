@@ -277,11 +277,14 @@ class Type {
 
   static Type *struct_type();
 
+  static bool is_compatible(Type *t1, Type *t2);
+
   TypeKind kind = TypeKind::INVALID;
 
   int size = 0;              // sizeof() value
   int align = 0;             // alignment
   bool is_unsigned = false;  // unsigned or signed
+  Type *origin = nullptr;    // for type compatibility check
 
   // Pointer-to or array-of type. We intentionally use the same member
   // to represent pointer/array duality in C.

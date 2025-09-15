@@ -16,9 +16,47 @@ Type *Type::ty_ulong = new Type(TypeKind::TY_LONG, 8, 8, true);
 Type *Type::ty_float = new Type(TypeKind::TY_FLOAT, 4, 4);
 Type *Type::ty_double = new Type(TypeKind::TY_DOUBLE, 8, 8);
 
+bool Type::is_compatible(Type *t1, Type *t2) {
+  if (t1 == t2) return true;
+
+  if (t1->origin) return is_compatible(t1->origin, t2);
+
+  if (t2->origin) return is_compatible(t1, t2->origin);
+
+  if (t1->kind != t2->kind) return false;
+
+  switch (t1->kind) {
+    case TypeKind::TY_CHAR:
+    case TypeKind::TY_SHORT:
+    case TypeKind::TY_INT:
+    case TypeKind::TY_LONG:
+      return t1->is_unsigned == t2->is_unsigned;
+    case TypeKind::TY_FLOAT:
+    case TypeKind::TY_DOUBLE:
+      return true;
+    case TypeKind::TY_PTR:
+      return is_compatible(t1->base, t2->base);
+    case TypeKind::TY_FUNC: {
+      if (!is_compatible(t1->return_ty, t2->return_ty)) return false;
+      if (t1->is_variadic != t2->is_variadic) return false;
+
+      Type *p1 = t1->params;
+      Type *p2 = t2->params;
+      for (; p1 && p2; p1 = p1->next, p2 = p2->next)
+        if (!is_compatible(p1, p2)) return false;
+      return p1 == NULL && p2 == NULL;
+    }
+    case TypeKind::TY_ARRAY:
+      if (!is_compatible(t1->base, t2->base)) return false;
+      return t1->array_len < 0 && t2->array_len < 0 && t1->array_len == t2->array_len;
+  }
+  return false;
+}
+
 Type *Type::copy_type(Type *ty) {
   Type *ret = new Type();
   *ret = *ty;
+  ret->origin = ty;
   return ret;
 }
 

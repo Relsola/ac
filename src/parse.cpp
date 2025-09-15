@@ -2515,6 +2515,7 @@ static Node *funcall(Token **rest, Token *tok, Node *fn) {
 //         | "sizeof" unary
 //         | "_Alignof" "(" type-name ")"
 //         | "_Alignof" unary
+//         | "__builtin_types_compatible_p" "(" type-name, type-name, ")"
 //         | "__builtin_reg_class" "(" type-name ")"
 //         | ident
 //         | str
@@ -2558,6 +2559,15 @@ static Node *primary(Token **rest, Token *tok) {
     Node *node = unary(rest, tok->next);
     add_type(node);
     return new_ulong(node->ty->align, tok);
+  }
+
+  if (tok->equal("__builtin_types_compatible_p")) {
+    tok = tok->next->skip("(");
+    Type *t1 = type_name(&tok, tok);
+    tok = tok->skip(",");
+    Type *t2 = type_name(&tok, tok);
+    *rest = tok->skip(")");
+    return new_num(Type::is_compatible(t1, t2), start);
   }
 
   if (tok->equal("__builtin_reg_class")) {
