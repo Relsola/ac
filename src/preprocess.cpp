@@ -638,7 +638,7 @@ static bool expand_macro(Token **rest, Token *tok) {
   return true;
 }
 
-static char *search_include_paths(char *filename) {
+char *search_include_paths(char *filename) {
   if (filename[0] == '/') return filename;
 
   // Search a file from the include paths.

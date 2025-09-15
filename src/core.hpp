@@ -407,6 +407,7 @@ void codegen(Obj *prog, FILE *out);
 // preprocess.c
 //
 
+char *search_include_paths(char *filename);
 void init_macros(void);
 void define_macro(char *name, char *buf);
 void undef_macro(char *name);
