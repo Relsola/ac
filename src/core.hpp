@@ -109,6 +109,10 @@ struct File {
   char *name = nullptr;
   int file_no = 0;
   char *contents = nullptr;
+
+  // For #line directive
+  char *display_name = nullptr;
+  int line_delta = 0;
 };
 
 class Token {
@@ -123,7 +127,9 @@ class Token {
   char *str = nullptr;                 // String literal contents including terminating '\0'
 
   File *file = nullptr;        // Source location
+  char *filename = nullptr;    // Filename
   int line_no = 0;             // Line number
+  int line_delta = 0;          // Line number
   bool at_bol = false;         // True if this token is at beginning of line
   bool has_space = false;      // True if this token follows a space character
   Hideset *hideset = nullptr;  // For macro expansion

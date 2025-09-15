@@ -75,6 +75,7 @@ void warn_tok(Token *tok, char *fmt, ...) {
 static Token *new_token(TokenKind kind, char *start, char *end) {
   Token *tok = new Token(kind, start, end);
   tok->file = current_file;
+  tok->filename = current_file->display_name;
   tok->at_bol = at_bol;
   tok->has_space = has_space;
 
@@ -629,6 +630,7 @@ std::vector<File *> get_input_files() { return input_files; }
 File *new_file(char *name, int file_no, char *contents) {
   File *file = new File();
   file->name = name;
+  file->display_name = name;
   file->file_no = file_no;
   file->contents = contents;
   return file;
