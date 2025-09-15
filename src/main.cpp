@@ -151,6 +151,11 @@ static void parse_args(int argc, char **argv) {
       continue;
     }
 
+    if (!strncmp(argv[i], "-l", 2)) {
+      include_paths.push_back(argv[i]);
+      continue;
+    }
+
     if (!strncmp(argv[i], "-U", 2)) {
       undef_macro(argv[i] + 2);
       continue;
@@ -445,6 +450,11 @@ int main(int argc, char **argv) {
   std::vector<char *> ld_args = {};
 
   for (auto &input : input_paths) {
+    if (!strncmp(input, "-l", 2)) {
+      ld_args.push_back(input);
+      continue;
+    }
+
     char *output;
     if (opt_o)
       output = opt_o;
