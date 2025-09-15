@@ -349,11 +349,11 @@ int64_t const_expr(Token **rest, Token *tok);
 
 void add_type(Node *node);
 
-void error(char *fmt, ...);
+[[noreturn]] void error(char *fmt, ...);
 
-void error_at(char *loc, char *fmt, ...);
+[[noreturn]] void error_at(char *loc, char *fmt, ...);
 
-void error_tok(Token *tok, char *fmt, ...);
+[[noreturn]] void error_tok(Token *tok, char *fmt, ...);
 
 void warn_tok(Token *tok, char *fmt, ...);
 
