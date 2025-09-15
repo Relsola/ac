@@ -777,6 +777,11 @@ static Token *preprocess2(Token *tok) {
       continue;
     }
 
+    if (tok->kind == TokenKind::TK_PP_NUM) {
+      read_line_marker(&tok, tok);
+      continue;
+    }
+
     if (tok->equal("error")) error_tok(tok, "error");
 
     // `#`-only line is legal. It's called a null directive.
