@@ -106,6 +106,7 @@ enum class TypeKind : int {
   TY_PTR,
   TY_FUNC,
   TY_ARRAY,
+  TY_VLA,  // variable-length array
   TY_STRUCT,
   TY_UNION,
 };
@@ -290,6 +291,8 @@ class Type {
 
   static Type *array_of(Type *base, int size);
 
+  static Type *vla_of(Type *base, Node *expr);
+
   static Type *enum_type();
 
   static Type *struct_type();
@@ -319,6 +322,10 @@ class Type {
 
   // Array
   int array_len = 0;
+
+  // Variable-length array
+  Node *vla_len = nullptr;  // # of elements
+  Obj *vla_size = nullptr;  // sizeof() value
 
   // Struct
   Member *members = nullptr;

@@ -110,6 +110,8 @@ static char *cont_label = nullptr;
 // a switch statement. Otherwise, NULL.
 static Node *current_switch = nullptr;
 
+static Obj *builtin_alloca = nullptr;
+
 static bool is_typename(Token *tok);
 static Type *declspec(Token **rest, Token *tok, VarAttr *attr);
 static Type *type_name(Token **rest, Token *tok);
@@ -131,6 +133,7 @@ static Node *expr(Token **rest, Token *tok);
 static int64_t eval(Node *node);
 static int64_t eval(Node *node, char **label);
 static int64_t eval_rval(Node *node, char **label);
+static bool is_const_expr(Node *node);
 static Node *assign(Token **rest, Token *tok);
 static Node *logor(Token **rest, Token *tok);
 static double eval_double(Node *node);
@@ -610,10 +613,12 @@ static Type *array_dimensions(Token **rest, Token *tok, Type *ty) {
     return Type::array_of(ty, -1);
   }
 
-  int sz = const_expr(&tok, tok);
+  Node *expr = conditional(&tok, tok);
   tok = tok->skip("]");
   ty = type_suffix(rest, tok, ty);
-  return Type::array_of(ty, sz);
+
+  if (ty->kind == TypeKind::TY_VLA || !is_const_expr(expr)) return Type::vla_of(ty, expr);
+  return Type::array_of(ty, eval(expr));
 }
 
 // type-suffix = "(" func-params
@@ -772,6 +777,36 @@ static Type *typeof_specifier(Token **rest, Token *tok) {
   return ty;
 }
 
+// Generate code for computing a VLA size.
+static Node *compute_vla_size(Type *ty, Token *tok) {
+  Node *node = new_node(NodeKind::ND_NULL_EXPR, tok);
+  if (ty->base) node = new_binary(NodeKind::ND_COMMA, node, compute_vla_size(ty->base, tok), tok);
+
+  if (ty->kind != TypeKind::TY_VLA) return node;
+
+  Node *base_sz;
+  if (ty->base->kind == TypeKind::TY_VLA)
+    base_sz = new_var_node(ty->base->vla_size, tok);
+  else
+    base_sz = new_num(ty->base->size, tok);
+
+  ty->vla_size = new_lvar("", Type::ty_ulong);
+  Node *expr = new_binary(NodeKind::ND_ASSIGN,
+                          new_var_node(ty->vla_size, tok),
+                          new_binary(NodeKind::ND_MUL, ty->vla_len, base_sz, tok),
+                          tok);
+  return new_binary(NodeKind::ND_COMMA, node, expr, tok);
+}
+
+static Node *new_alloca(Node *sz) {
+  Node *node = new_unary(NodeKind::ND_FUNCALL, new_var_node(builtin_alloca, sz->tok), sz->tok);
+  node->func_ty = builtin_alloca->ty;
+  node->ty = builtin_alloca->ty->return_ty;
+  node->args = sz;
+  add_type(sz);
+  return node;
+}
+
 // declaration = declspec (declarator ("=" expr)? ("," declarator ("=" expr)?)*)? ";"
 static Node *declaration(Token **rest, Token *tok, Type *basety, VarAttr *attr) {
   Node head = {};
@@ -791,6 +826,28 @@ static Node *declaration(Token **rest, Token *tok, Type *basety, VarAttr *attr) 
       Obj *var = new_anon_gvar(ty);
       push_scope(get_ident(ty->name))->var = var;
       if (tok->equal("=")) gvar_initializer(&tok, tok->next, var);
+      continue;
+    }
+
+    // Generate code for computing a VLA size. We need to do this
+    // even if ty is not VLA because ty may be a pointer to VLA
+    // (e.g. int (*foo)[n][m] where n and m are variables.)
+    cur = cur->next = new_unary(NodeKind::ND_EXPR_STMT, compute_vla_size(ty, tok), tok);
+
+    if (ty->kind == TypeKind::TY_VLA) {
+      if (tok->equal("=")) error_tok(tok, "variable-sized object may not be initialized");
+
+      // Variable length arrays (VLAs) are translated to alloca() calls.
+      // For example, `int x[n+2]` is translated to `tmp = n + 2,
+      // x = alloca(tmp)`.
+      Obj *var = new_lvar(get_ident(ty->name), ty);
+      Token *tok = ty->name;
+      Node *expr = new_binary(NodeKind::ND_ASSIGN,
+                              new_var_node(var, tok),
+                              new_alloca(new_var_node(ty->vla_size, tok)),
+                              tok);
+
+      cur = cur->next = new_unary(NodeKind::ND_EXPR_STMT, expr, tok);
       continue;
     }
 
@@ -1761,6 +1818,43 @@ static int64_t eval_rval(Node *node, char **label) {
   error_tok(node->tok, "invalid initializer");
 }
 
+static bool is_const_expr(Node *node) {
+  add_type(node);
+
+  switch (node->kind) {
+    case NodeKind::ND_ADD:
+    case NodeKind::ND_SUB:
+    case NodeKind::ND_MUL:
+    case NodeKind::ND_DIV:
+    case NodeKind::ND_BITAND:
+    case NodeKind::ND_BITOR:
+    case NodeKind::ND_BITXOR:
+    case NodeKind::ND_SHL:
+    case NodeKind::ND_SHR:
+    case NodeKind::ND_EQ:
+    case NodeKind::ND_NE:
+    case NodeKind::ND_LT:
+    case NodeKind::ND_LE:
+    case NodeKind::ND_LOGAND:
+    case NodeKind::ND_LOGOR:
+      return is_const_expr(node->lhs) && is_const_expr(node->rhs);
+    case NodeKind::ND_COND:
+      if (!is_const_expr(node->cond)) return false;
+      return is_const_expr(eval(node->cond) ? node->then : node->els);
+    case NodeKind::ND_COMMA:
+      return is_const_expr(node->rhs);
+    case NodeKind::ND_NEG:
+    case NodeKind::ND_NOT:
+    case NodeKind::ND_BITNOT:
+    case NodeKind::ND_CAST:
+      return is_const_expr(node->lhs);
+    case NodeKind::ND_NUM:
+      return true;
+  }
+
+  return false;
+}
+
 int64_t const_expr(Token **rest, Token *tok) {
   Node *node = conditional(rest, tok);
   return eval(node);
@@ -2569,7 +2663,7 @@ static Node *generic_selection(Token **rest, Token *tok) {
   else if (t1->kind == TypeKind::TY_ARRAY)
     t1 = Type::pointer_to(t1->base);
 
-  Node *ret = NULL;
+  Node *ret = nullptr;
 
   while (!tok->consume(rest, ")")) {
     tok = tok->skip(",");
@@ -2626,12 +2720,14 @@ static Node *primary(Token **rest, Token *tok) {
   if (tok->equal("sizeof") && tok->next->equal("(") && is_typename(tok->next->next)) {
     Type *ty = type_name(&tok, tok->next->next);
     *rest = tok->skip(")");
+    if (ty->kind == TypeKind::TY_VLA) return new_var_node(ty->vla_size, tok);
     return new_ulong(ty->size, start);
   }
 
   if (tok->equal("sizeof")) {
     Node *node = unary(rest, tok->next);
     add_type(node);
+    if (node->ty->kind == TypeKind::TY_VLA) return new_var_node(node->ty->vla_size, tok);
     return new_ulong(node->ty->size, tok);
   }
 
@@ -2890,8 +2986,8 @@ static void scan_globals() {
 static void declare_builtin_functions(void) {
   Type *ty = Type::func_type(Type::pointer_to(Type::ty_void));
   ty->params = Type::copy_type(Type::ty_int);
-  Obj *builtin = new_gvar("alloca", ty);
-  builtin->is_definition = false;
+  builtin_alloca = new_gvar("alloca", ty);
+  builtin_alloca->is_definition = false;
 }
 
 // program = (typedef | function-definition | global-variable)*

@@ -83,6 +83,13 @@ Type *Type::array_of(Type *base, int len) {
   return ty;
 }
 
+Type *Type::vla_of(Type *base, Node *len) {
+  Type *ty = new Type(TypeKind::TY_VLA, 8, 8);
+  ty->base = base;
+  ty->vla_len = len;
+  return ty;
+}
+
 Type *Type::enum_type() { return new Type(TypeKind::TY_ENUM, 4, 4); }
 
 Type *Type::struct_type(void) { return new Type(TypeKind::TY_STRUCT, 0, 1); }
@@ -168,7 +175,7 @@ void add_type(Node *node) {
       node->ty = Type::ty_int;
       return;
     case NodeKind::ND_FUNCALL:
-      node->ty = Type::ty_long;
+      node->ty = node->func_ty->return_ty;
       return;
     case NodeKind::ND_NOT:
     case NodeKind::ND_LOGOR:
