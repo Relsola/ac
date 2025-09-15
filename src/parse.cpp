@@ -1865,13 +1865,25 @@ static Node *assign(Token **rest, Token *tok) {
   return node;
 }
 
-// conditional = logor ("?" expr ":" conditional)?
+// conditional = logor ("?" expr? ":" conditional)?
 static Node *conditional(Token **rest, Token *tok) {
   Node *cond = logor(&tok, tok);
 
   if (!tok->equal("?")) {
     *rest = tok;
     return cond;
+  }
+
+  if (tok->next->equal(":")) {
+    // [GNU] Compile `a ?: b` as `tmp = a, tmp ? tmp : b`.
+    add_type(cond);
+    Obj *var = new_lvar("", cond->ty);
+    Node *lhs = new_binary(NodeKind::ND_ASSIGN, new_var_node(var, tok), cond, tok);
+    Node *rhs = new_node(NodeKind::ND_COND, tok);
+    rhs->cond = new_var_node(var, tok);
+    rhs->then = new_var_node(var, tok);
+    rhs->els = conditional(rest, tok->next->next);
+    return new_binary(NodeKind::ND_COMMA, lhs, rhs, tok);
   }
 
   Node *node = new_node(NodeKind::ND_COND, tok);
