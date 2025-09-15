@@ -2830,7 +2830,10 @@ static Token *global_variable(Token *tok, Type *basety, VarAttr *attr) {
     var->is_static = attr->is_static;
     if (attr->align) var->align = attr->align;
 
-    if (tok->equal("=")) gvar_initializer(&tok, tok->next, var);
+    if (tok->equal("="))
+      gvar_initializer(&tok, tok->next, var);
+    else if (!attr->is_extern)
+      var->is_tentative = true;
   }
 
   return tok;
@@ -2844,6 +2847,31 @@ static bool is_function(Token *tok) {
   Type dummy = {};
   Type *ty = declarator(&tok, tok, &dummy);
   return ty->kind == TypeKind::TY_FUNC;
+}
+
+// Remove redundant tentative definitions.
+static void scan_globals() {
+  Obj head;
+  Obj *cur = &head;
+
+  for (Obj *var = globals; var; var = var->next) {
+    if (!var->is_tentative) {
+      cur = cur->next = var;
+      continue;
+    }
+
+    // Find another definition of the same identifier.
+    Obj *var2 = globals;
+    for (; var2; var2 = var2->next)
+      if (var != var2 && var2->is_definition && !strcmp(var->name, var2->name)) break;
+
+    // If there's another definition, the tentative definition
+    // is redundant
+    if (!var2) cur = cur->next = var;
+  }
+
+  cur->next = nullptr;
+  globals = head.next;
 }
 
 // program = (typedef | function-definition | global-variable)*
@@ -2873,5 +2901,7 @@ Obj *parse(Token *tok) {
   for (Obj *var = globals; var; var = var->next)
     if (var->is_root) mark_live(var);
 
+  // Remove redundant tentative definitions.
+  scan_globals();
   return globals;
 }

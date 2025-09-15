@@ -172,6 +172,7 @@ class Obj {
   bool is_static = false;
 
   // Global variable
+  bool is_tentative = false;
   char *init_data = nullptr;
   Relocation *rel = nullptr;
 
