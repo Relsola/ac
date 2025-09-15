@@ -112,6 +112,7 @@ static bool is_typename(Token *tok);
 static Type *declspec(Token **rest, Token *tok, VarAttr *attr);
 static Type *type_name(Token **rest, Token *tok);
 static Type *enum_specifier(Token **rest, Token *tok);
+static Type *typeof_specifier(Token **rest, Token *tok);
 static Type *type_suffix(Token **rest, Token *tok, Type *ty);
 static Type *declarator(Token **rest, Token *tok, Type *ty);
 static Node *declaration(Token **rest, Token *tok, Type *basety, VarAttr *attr);
@@ -349,7 +350,7 @@ static void push_tag_scope(Token *tok, Type *ty) {
 //             | "typedef" | "static" | "extern"
 //             | "signed" | "unsigned"
 //             | struct-decl | union-decl | typedef-name
-//             | enum-specifier
+//             | enum-specifier | typeof-specifier
 //             | "const" | "volatile" | "auto" | "register" | "restrict"
 //             | "__restrict" | "__restrict__" | "_Noreturn")+
 //
@@ -425,7 +426,8 @@ static Type *declspec(Token **rest, Token *tok, VarAttr *attr) {
 
     // Handle user-defined types.
     Type *ty2 = find_typedef(tok);
-    if (tok->equal("struct") || tok->equal("union") || tok->equal("enum") || ty2) {
+    if (tok->equal("struct") || tok->equal("union") || tok->equal("enum") || tok->equal("typeof") ||
+        ty2) {
       if (counter) break;
 
       if (tok->equal("struct")) {
@@ -434,6 +436,8 @@ static Type *declspec(Token **rest, Token *tok, VarAttr *attr) {
         ty = union_decl(&tok, tok->next);
       } else if (tok->equal("enum")) {
         ty = enum_specifier(&tok, tok->next);
+      } else if (tok->equal("typeof")) {
+        ty = typeof_specifier(&tok, tok->next);
       } else {
         ty = ty2;
         tok = tok->next;
@@ -737,6 +741,22 @@ static Type *enum_specifier(Token **rest, Token *tok) {
   }
 
   if (tag) push_tag_scope(tag, ty);
+  return ty;
+}
+
+// typeof-specifier = "(" (expr | typename) ")"
+static Type *typeof_specifier(Token **rest, Token *tok) {
+  tok = tok->skip("(");
+
+  Type *ty;
+  if (is_typename(tok)) {
+    ty = type_name(&tok, tok);
+  } else {
+    Node *node = expr(&tok, tok);
+    add_type(node);
+    ty = node->ty;
+  }
+  *rest = tok->skip(")");
   return ty;
 }
 
@@ -1327,7 +1347,7 @@ static bool is_typename(Token *tok) {
       "void",         "_Bool",     "char",     "short",  "int",      "long",     "struct",
       "union",        "enum",      "typedef",  "static", "extern",   "_Alignas", "signed",
       "unsigned",     "const",     "volatile", "auto",   "register", "restrict", "__restrict",
-      "__restrict__", "_Noreturn", "float",    "double",
+      "__restrict__", "_Noreturn", "float",    "double", "typeof",
   };
 
   for (int i = 0; i < sizeof(kw) / sizeof(*kw); i++)
