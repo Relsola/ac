@@ -463,6 +463,12 @@ static Token *paste(Token *lhs, Token *rhs) {
   return tok;
 }
 
+static bool has_varargs(MacroArg *args) {
+  for (MacroArg *ap = args; ap; ap = ap->next)
+    if (!strcmp(ap->name, "__VA_ARGS__")) return ap->tok->kind != TokenKind::TK_EOF;
+  return false;
+}
+
 // Replace func-like macro parameters with given arguments.
 static Token *subst(Token *tok, MacroArg *args) {
   Token head = {};
@@ -520,6 +526,16 @@ static Token *subst(Token *tok, MacroArg *args) {
       for (Token *t = arg->tok; t->kind != TokenKind::TK_EOF; t = t->next)
         cur = cur->next = copy_token(t);
       tok = tok->next;
+      continue;
+    }
+
+    // If __VA_ARG__ is empty, __VA_OPT__(x) is expanded to the
+    // empty token list. Otherwise, __VA_OPT__(x) is expanded to x.
+    if (tok->equal("__VA_OPT__") && tok->next->equal("(")) {
+      MacroArg *arg = read_macro_arg_one(&tok, tok->next->next, true);
+      if (has_varargs(args))
+        for (Token *t = arg->tok; t->kind != TokenKind::TK_EOF; t = t->next) cur = cur->next = t;
+      tok = tok->skip(")");
       continue;
     }
 
