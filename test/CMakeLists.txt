@@ -19,7 +19,7 @@ foreach(test_src ${TEST_SRC})
     # 2. 生成可执行文件
     add_custom_command(
         OUTPUT ${test_exe}
-        COMMAND ${CMAKE_C_COMPILER} -o ${test_exe} ${test_o} -xc ${CMAKE_CURRENT_SOURCE_DIR}/common
+        COMMAND ${CMAKE_C_COMPILER} -pthread -o ${test_exe} ${test_o} -xc ${CMAKE_CURRENT_SOURCE_DIR}/common
 				DEPENDS ${test_o} ${CMAKE_CURRENT_SOURCE_DIR}/common
         COMMENT "Linking ${test_exe}"
         VERBATIM

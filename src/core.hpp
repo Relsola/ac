@@ -173,6 +173,7 @@ class Obj {
 
   // Global variable
   bool is_tentative = false;
+  bool is_tls = false;
   char *init_data = nullptr;
   Relocation *rel = nullptr;
 
