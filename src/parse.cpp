@@ -70,6 +70,10 @@ struct Initializer {
   // If it's an initializer for an aggregate type (e.g. array or struct),
   // `children` has initializers for its children.
   Initializer **children = nullptr;
+
+  // Only one member can be initialized for a union.
+  // `mem` is used to clarify which member is initialized.
+  Member *mem = nullptr;
 };
 
 // For local variable initializer.
@@ -882,6 +886,13 @@ static void designation(Token **rest, Token *tok, Initializer *init) {
     return;
   }
 
+  if (tok->equal(".") && init->ty->kind == TypeKind::TY_UNION) {
+    Member *mem = struct_designator(&tok, tok, init->ty);
+    init->mem = mem;
+    designation(rest, tok, init->children[mem->idx]);
+    return;
+  }
+
   if (tok->equal(".")) error_tok(tok, "field name not in struct or union initializer");
 
   if (tok->equal("=")) tok = tok->next;
@@ -1019,7 +1030,18 @@ static void struct_initializer2(Token **rest, Token *tok, Initializer *init, Mem
 
 static void union_initializer(Token **rest, Token *tok, Initializer *init) {
   // Unlike structs, union initializers take only one initializer,
-  // and that initializes the first union member.
+  // and that initializes the first union member by default.
+  // You can initialize other member using a designated initializer.
+  if (tok->equal("{") && tok->next->equal(".")) {
+    Member *mem = struct_designator(&tok, tok->next, init->ty);
+    init->mem = mem;
+    designation(&tok, tok, init->children[mem->idx]);
+    *rest = tok->skip("}");
+    return;
+  }
+
+  init->mem = init->ty->members;
+
   if (tok->equal("{")) {
     initializer2(&tok, tok->next, init->children[0]);
     tok->consume(&tok, ",");
@@ -1155,8 +1177,9 @@ static Node *create_lvar_init(Initializer *init, Type *ty, InitDesg *desg, Token
   }
 
   if (ty->kind == TypeKind::TY_UNION) {
-    InitDesg desg2 = {desg, 0, ty->members};
-    return create_lvar_init(init->children[0], ty->members->ty, &desg2, tok);
+    Member *mem = init->mem ? init->mem : ty->members;
+    InitDesg desg2 = {desg, 0, mem};
+    return create_lvar_init(init->children[mem->idx], mem->ty, &desg2, tok);
   }
 
   if (!init->expr) return new_node(NodeKind::ND_NULL_EXPR, tok);
@@ -1239,8 +1262,10 @@ static Relocation *write_gvar_data(Relocation *cur, Initializer *init, Type *ty,
     return cur;
   }
 
-  if (ty->kind == TypeKind::TY_UNION)
-    return write_gvar_data(cur, init->children[0], ty->members->ty, buf, offset);
+  if (ty->kind == TypeKind::TY_UNION) {
+    if (!init->mem) return cur;
+    return write_gvar_data(cur, init->children[init->mem->idx], init->mem->ty, buf, offset);
+  }
 
   if (!init->expr) return cur;
 
