@@ -16,13 +16,19 @@ static FileType opt_x;
 static std::vector<char *> opt_include;
 static bool opt_E;
 static bool opt_M;
+static bool opt_MP;
+static bool opt_MD;
+static bool opt_MMD;
 static bool opt_S;
 static bool opt_c;
 static bool opt_cc1;
 static bool opt_hash_hash_hash;
+static char *opt_MF;
+static char *opt_MT;
 static char *opt_o;
 
 static std::vector<char *> ld_extra_args;
+static std::vector<char *> std_include_paths;
 
 char *base_file;
 static char *output_file;
@@ -36,7 +42,7 @@ static void usage(int status) {
 }
 
 static bool take_arg(char *arg) {
-  char *x[] = {"-o", "-I", "-idirafter", "-include"};
+  char *x[] = {"-o", "-I", "-idirafter", "-include", "-x", "-MF", "-MT"};
 
   for (int i = 0; i < sizeof(x) / sizeof(*x); i++)
     if (!strcmp(arg, x[i])) return true;
@@ -52,6 +58,9 @@ static void add_default_include_paths(char *argv0) {
   include_paths.push_back("/usr/local/include");
   include_paths.push_back("/usr/include/x86_64-linux-gnu");
   include_paths.push_back("/usr/include");
+
+  // Keep a copy of the standard include paths for -MMD option.
+  for (auto &path : include_paths) std_include_paths.push_back(path);
 }
 
 static FileType parse_opt_x(char *s) {
@@ -67,6 +76,33 @@ static void define(char *str) {
     define_macro(strndup(str, eq - str), eq + 1);
   else
     define_macro(str, "1");
+}
+
+static char *quote_makefile(char *s) {
+  char *buf = new char[strlen(s) * 2 + 1]();
+
+  for (int i = 0, j = 0; s[i]; i++) {
+    switch (s[i]) {
+      case '$':
+        buf[j++] = '$';
+        buf[j++] = '$';
+        break;
+      case '#':
+        buf[j++] = '\\';
+        buf[j++] = '#';
+        break;
+      case ' ':
+      case '\t':
+        for (int k = i - 1; k >= 0 && s[k] == '\\'; k--) buf[j++] = '\\';
+        buf[j++] = '\\';
+        buf[j++] = s[i];
+        break;
+      default:
+        buf[j++] = s[i];
+        break;
+    }
+  }
+  return buf;
 }
 
 static void parse_args(int argc, char **argv) {
@@ -173,6 +209,42 @@ static void parse_args(int argc, char **argv) {
 
     if (!strcmp(argv[i], "-M")) {
       opt_M = true;
+      continue;
+    }
+
+    if (!strcmp(argv[i], "-MF")) {
+      opt_MF = argv[++i];
+      continue;
+    }
+
+    if (!strcmp(argv[i], "-MP")) {
+      opt_MP = true;
+      continue;
+    }
+
+    if (!strcmp(argv[i], "-MT")) {
+      if (opt_MT == nullptr)
+        opt_MT = argv[++i];
+      else
+        opt_MT = format("%s %s", opt_MT, argv[++i]);
+      continue;
+    }
+
+    if (!strcmp(argv[i], "-MD")) {
+      opt_MD = true;
+      continue;
+    }
+
+    if (!strcmp(argv[i], "-MQ")) {
+      if (opt_MT == nullptr)
+        opt_MT = quote_makefile(argv[++i]);
+      else
+        opt_MT = format("%s %s", opt_MT, quote_makefile(argv[++i]));
+      continue;
+    }
+
+    if (!strcmp(argv[i], "-MMD")) {
+      opt_MD = opt_MMD = true;
       continue;
     }
 
@@ -306,16 +378,47 @@ static void print_tokens(Token *tok) {
   fprintf(out, "\n");
 }
 
+static bool in_std_include_path(char *path) {
+  for (auto &dir : std_include_paths) {
+    int len = strlen(dir);
+    if (strncmp(dir, path, len) == 0 && path[len] == '/') return true;
+  }
+  return false;
+}
+
 // If -M options is given, the compiler write a list of input files to
 // stdout in a format that "make" command can read. This feature is
 // used to automate file dependency management.
-static void print_dependencies(void) {
-  FILE *out = open_file(opt_o ? opt_o : (char *)"-");
-  fprintf(out, "%s:", replace_extn(base_file, ".o"));
+static void print_dependencies() {
+  char *path;
+  if (opt_MF)
+    path = opt_MF;
+  else if (opt_MD)
+    path = replace_extn(opt_o ? opt_o : base_file, ".d");
+  else if (opt_o)
+    path = opt_o;
+  else
+    path = "-";
+
+  FILE *out = open_file(path);
+  if (opt_MT)
+    fprintf(out, "%s:", opt_MT);
+  else
+    fprintf(out, "%s:", quote_makefile(replace_extn(base_file, ".o")));
 
   std::vector<File *> files = get_input_files();
-  for (auto &file : files) fprintf(out, " \\\n  %s", file->name);
+
+  for (auto &file : files) {
+    if (opt_MMD && in_std_include_path(file->name)) continue;
+    fprintf(out, " \\\n  %s", file->name);
+  }
   fprintf(out, "\n\n");
+
+  if (opt_MP)
+    for (auto &file : files) {
+      if (opt_MMD && in_std_include_path(file->name)) continue;
+      fprintf(out, "%s:\n\n", quote_makefile(file->name));
+    }
 }
 
 static Token *must_tokenize_file(char *path) {
@@ -355,10 +458,10 @@ static void cc1(void) {
   tok = append_tokens(tok, tok2);
   tok = preprocess(tok);
 
-  // If -M is given, print file dependencies.
-  if (opt_M) {
+  // If -M or -MD are given, print file dependencies.
+  if (opt_M || opt_MD) {
     print_dependencies();
-    return;
+    if (opt_M) return;
   }
 
   // If -E is given, print out preprocessed C code as a result.
