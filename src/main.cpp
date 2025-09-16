@@ -24,6 +24,7 @@ static bool opt_S;
 static bool opt_c;
 static bool opt_cc1;
 static bool opt_hash_hash_hash;
+static bool opt_static;
 static char *opt_MF;
 static char *opt_MT;
 static char *opt_o;
@@ -271,6 +272,12 @@ static void parse_args(int argc, char **argv) {
 
     if (!strcmp(argv[i], "-idirafter")) {
       idirafter.push_back(argv[i++]);
+      continue;
+    }
+
+    if (!strcmp(argv[i], "-static")) {
+      opt_static = true;
+      ld_extra_args.push_back("-static");
       continue;
     }
 
@@ -535,8 +542,7 @@ static char *find_gcc_libpath(void) {
 }
 
 static void run_linker(std::vector<char *> *inputs, char *output) {
-  std::vector<char *> arr =
-      {"ld", "-o", output, "-m", "elf_x86_64", "-dynamic-linker", "/lib64/ld-linux-x86-64.so.2"};
+  std::vector<char *> arr = {"ld", "-o", output, "-m", "elf_x86_64"};
 
   char *libpath = find_libpath();
   char *gcc_libpath = find_gcc_libpath();
@@ -545,8 +551,6 @@ static void run_linker(std::vector<char *> *inputs, char *output) {
   arr.push_back(format("%s/crti.o", libpath));
   arr.push_back(format("%s/crtbegin.o", gcc_libpath));
   arr.push_back(format("-L%s", gcc_libpath));
-  arr.push_back(format("-L%s", libpath));
-  arr.push_back(format("-L%s/..", libpath));
   arr.push_back("-L/usr/lib64");
   arr.push_back("-L/lib64");
   arr.push_back("-L/usr/lib/x86_64-linux-gnu");
@@ -555,15 +559,29 @@ static void run_linker(std::vector<char *> *inputs, char *output) {
   arr.push_back("-L/usr/lib");
   arr.push_back("-L/lib");
 
+  if (!opt_static) {
+    arr.push_back("-dynamic-linker");
+    arr.push_back("/lib64/ld-linux-x86-64.so.2");
+  }
+
   for (auto &item : ld_extra_args) arr.push_back(item);
 
   for (auto &item : *inputs) arr.push_back(item);
 
-  arr.push_back("-lc");
-  arr.push_back("-lgcc");
-  arr.push_back("--as-needed");
-  arr.push_back("-lgcc_s");
-  arr.push_back("--no-as-needed");
+  if (opt_static) {
+    arr.push_back("--start-group");
+    arr.push_back("-lgcc");
+    arr.push_back("-lgcc_eh");
+    arr.push_back("-lc");
+    arr.push_back("--end-group");
+  } else {
+    arr.push_back("-lc");
+    arr.push_back("-lgcc");
+    arr.push_back("--as-needed");
+    arr.push_back("-lgcc_s");
+    arr.push_back("--no-as-needed");
+  }
+
   arr.push_back(format("%s/crtend.o", gcc_libpath));
   arr.push_back(format("%s/crtn.o", libpath));
   arr.push_back(nullptr);
