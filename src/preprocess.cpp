@@ -635,10 +635,15 @@ static bool expand_macro(Token **rest, Token *tok) {
 char *search_include_paths(char *filename) {
   if (filename[0] == '/') return filename;
 
+  static std::unordered_map<std::string, std::string> cache;
+  if (cache.count(std::string(filename))) return cache[std::string(filename)].data();
+
   // Search a file from the include paths.
   for (auto &item : include_paths) {
     char *path = format("%s/%s", item, filename);
-    if (file_exists(path)) return path;
+    if (!file_exists(path)) continue;
+    cache[std::string(filename)] = std::string(path);
+    return path;
   }
 
   return nullptr;
