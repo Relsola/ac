@@ -61,6 +61,7 @@ struct Hideset {
 
 static std::unordered_map<std::string, Macro *> macros;
 static CondIncl *cond_incl = nullptr;
+static std::unordered_map<std::string, bool> pragma_once;
 
 static Token *preprocess2(Token *tok);
 static Macro *find_macro(Token *tok);
@@ -725,6 +726,9 @@ static char *detect_include_guard(Token *tok) {
 }
 
 static Token *include_file(Token *tok, char *path, Token *filename_tok) {
+  // Check for "#pragma once"
+  if (pragma_once.count(std::string(path))) return tok;
+
   // If we read the same file before, and if the file was guarded
   // by the usual #ifndef ... #endif pattern, we may be able to
   // skip the file without opening it.
@@ -866,6 +870,12 @@ static Token *preprocess2(Token *tok) {
 
     if (tok->kind == TokenKind::TK_PP_NUM) {
       read_line_marker(&tok, tok);
+      continue;
+    }
+
+    if (tok->equal("pragma") && tok->next->equal("once")) {
+      pragma_once[std::string(tok->file->name)] = true;
+      tok = skip_line(tok->next->next);
       continue;
     }
 
