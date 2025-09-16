@@ -256,4 +256,10 @@ $ac -c -MD -MF $tmp/md-mf.d -I. $tmp/md2.c
 grep -q -z '^md2.o:.*md2\.c .*/out2\.h' $tmp/md-mf.d
 check -MD
 
+echo 'extern int bar; int foo() { return bar; }' | $ac -fPIC -xc -c -o $tmp/foo.o -
+cc -shared -o $tmp/foo.so $tmp/foo.o
+echo 'int foo(); int bar=3; int main() { foo(); }' > $tmp/main.c
+$ac -o $tmp/foo $tmp/main.c $tmp/foo.so
+check -fPIC
+
 echo OK

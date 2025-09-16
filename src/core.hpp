@@ -446,5 +446,6 @@ int display_width(char *p, int len);
 bool file_exists(char *path);
 
 extern std::vector<char *> include_paths;
+extern bool opt_fpic;
 extern char *base_file;
 extern bool opt_fcommon;
