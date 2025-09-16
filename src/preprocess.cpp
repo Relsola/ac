@@ -689,9 +689,55 @@ static char *read_include_filename(Token **rest, Token *tok, bool *is_dquote) {
   error_tok(tok, "expected a filename");
 }
 
+// Detect the following "include guard" pattern.
+//
+//   #ifndef FOO_H
+//   #define FOO_H
+//   ...
+//   #endif
+static char *detect_include_guard(Token *tok) {
+  // Detect the first two lines.
+  if (!is_hash(tok) || !tok->next->equal("ifndef")) return NULL;
+  tok = tok->next->next;
+
+  if (tok->kind != TokenKind::TK_IDENT) return NULL;
+
+  char *macro = strndup(tok->loc, tok->len);
+  tok = tok->next;
+
+  if (!is_hash(tok) || !tok->next->equal("define") || !tok->next->next->equal(macro)) return NULL;
+
+  // Read until the end of the file.
+  while (tok->kind != TokenKind::TK_EOF) {
+    if (!is_hash(tok)) {
+      tok = tok->next;
+      continue;
+    }
+
+    if (tok->next->equal("endif") && tok->next->next->kind == TokenKind::TK_EOF) return macro;
+
+    if (tok->equal("if") || tok->equal("ifdef") || tok->equal("ifndef"))
+      tok = skip_cond_incl(tok->next);
+    else
+      tok = tok->next;
+  }
+  return nullptr;
+}
+
 static Token *include_file(Token *tok, char *path, Token *filename_tok) {
+  // If we read the same file before, and if the file was guarded
+  // by the usual #ifndef ... #endif pattern, we may be able to
+  // skip the file without opening it.
+  static std::unordered_map<std::string, std::string> include_guards;
+  if (include_guards.count(std::string(path)) && macros.count(include_guards[std::string(path)]))
+    return tok;
+
   Token *tok2 = tokenize_file(path);
   if (!tok2) error_tok(filename_tok, "%s: cannot open file: %s", path, strerror(errno));
+
+  char *guard_name = detect_include_guard(tok2);
+  if (guard_name) include_guards[std::string(path)] = std::string(guard_name);
+
   return append(tok2, tok);
 }
 
