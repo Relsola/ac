@@ -1433,7 +1433,6 @@ static bool is_typename(Token *tok) {
     if (tok->equal(kw[i])) return true;
 
   return find_typedef(tok);
-  ;
 }
 
 // asm-stmt = "asm" ("volatile" | "inline")* "(" string-literal ")"

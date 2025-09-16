@@ -218,4 +218,11 @@ echo 'void foo(); void bar(); int main() { foo(); bar(); }' > $tmp/main.c
 $ac -o $tmp/foo $tmp/main.c $tmp/foo.so
 check '.so'
 
+# -M
+echo '#include "out2.h"' > $tmp/out.c
+echo '#include "out3.h"' >> $tmp/out.c
+touch $tmp/out2.h $tmp/out3.h
+$ac -M -I$tmp $tmp/out.c | grep -q -z '^out.o: .*/out\.c .*/out2\.h .*/out3\.h'
+check -M
+
 echo OK

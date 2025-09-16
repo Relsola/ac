@@ -15,6 +15,7 @@ bool opt_fcommon = true;
 static FileType opt_x;
 static std::vector<char *> opt_include;
 static bool opt_E;
+static bool opt_M;
 static bool opt_S;
 static bool opt_c;
 static bool opt_cc1;
@@ -170,6 +171,11 @@ static void parse_args(int argc, char **argv) {
       continue;
     }
 
+    if (!strcmp(argv[i], "-M")) {
+      opt_M = true;
+      continue;
+    }
+
     if (!strncmp(argv[i], "-U", 2)) {
       undef_macro(argv[i] + 2);
       continue;
@@ -300,6 +306,18 @@ static void print_tokens(Token *tok) {
   fprintf(out, "\n");
 }
 
+// If -M options is given, the compiler write a list of input files to
+// stdout in a format that "make" command can read. This feature is
+// used to automate file dependency management.
+static void print_dependencies(void) {
+  FILE *out = open_file(opt_o ? opt_o : (char *)"-");
+  fprintf(out, "%s:", replace_extn(base_file, ".o"));
+
+  std::vector<File *> files = get_input_files();
+  for (auto &file : files) fprintf(out, " \\\n  %s", file->name);
+  fprintf(out, "\n\n");
+}
+
 static Token *must_tokenize_file(char *path) {
   Token *tok = tokenize_file(path);
   if (!tok) error("%s: %s", path, strerror(errno));
@@ -336,6 +354,12 @@ static void cc1(void) {
   Token *tok2 = must_tokenize_file(base_file);
   tok = append_tokens(tok, tok2);
   tok = preprocess(tok);
+
+  // If -M is given, print file dependencies.
+  if (opt_M) {
+    print_dependencies();
+    return;
+  }
 
   // If -E is given, print out preprocessed C code as a result.
   if (opt_E) {
@@ -495,8 +519,8 @@ int main(int argc, char **argv) {
     }
 
     // Just preprocess
-    if (opt_E) {
-      run_cc1(argc, argv, input, NULL);
+    if (opt_E || opt_M) {
+      run_cc1(argc, argv, input, nullptr);
       continue;
     }
 
