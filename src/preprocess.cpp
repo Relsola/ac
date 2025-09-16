@@ -62,6 +62,7 @@ struct Hideset {
 static std::unordered_map<std::string, Macro *> macros;
 static CondIncl *cond_incl = nullptr;
 static std::unordered_map<std::string, bool> pragma_once;
+static int include_next_idx = 0;
 
 static Token *preprocess2(Token *tok);
 static Macro *find_macro(Token *tok);
@@ -640,13 +641,22 @@ char *search_include_paths(char *filename) {
   if (cache.count(std::string(filename))) return cache[std::string(filename)].data();
 
   // Search a file from the include paths.
-  for (auto &item : include_paths) {
-    char *path = format("%s/%s", item, filename);
+  for (int i = 0; i < include_paths.size(); i++) {
+    char *path = format("%s/%s", include_paths[i], filename);
     if (!file_exists(path)) continue;
     cache[std::string(filename)] = std::string(path);
+    include_next_idx = i + 1;
     return path;
   }
 
+  return nullptr;
+}
+
+static char *search_include_next(char *filename) {
+  for (; include_next_idx < include_paths.size(); include_next_idx++) {
+    char *path = format("%s/%s", include_paths[include_next_idx], filename);
+    if (file_exists(path)) return path;
+  }
   return nullptr;
 }
 
@@ -796,6 +806,14 @@ static Token *preprocess2(Token *tok) {
       }
 
       char *path = search_include_paths(filename);
+      tok = include_file(tok, path ? path : filename, start->next->next);
+      continue;
+    }
+
+    if (tok->equal("include_next")) {
+      bool ignore;
+      char *filename = read_include_filename(&tok, tok->next, &ignore);
+      char *path = search_include_next(filename);
       tok = include_file(tok, path ? path : filename, start->next->next);
       continue;
     }
