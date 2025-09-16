@@ -236,5 +236,8 @@ void add_type(Node *node) {
       }
       error_tok(node->tok, "statement expression returning void is not supported");
       return;
+    case NodeKind::ND_LABEL_VAL:
+      node->ty = Type::pointer_to(Type::ty_void);
+      return;
   }
 }
