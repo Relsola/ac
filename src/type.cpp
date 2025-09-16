@@ -15,6 +15,7 @@ Type *Type::ty_ulong = new Type(TypeKind::TY_LONG, 8, 8, true);
 
 Type *Type::ty_float = new Type(TypeKind::TY_FLOAT, 4, 4);
 Type *Type::ty_double = new Type(TypeKind::TY_DOUBLE, 8, 8);
+Type *Type::ty_ldouble = new Type(TypeKind::TY_LDOUBLE, 16, 16);
 
 bool Type::is_compatible(Type *t1, Type *t2) {
   if (t1 == t2) return true;
@@ -33,6 +34,7 @@ bool Type::is_compatible(Type *t1, Type *t2) {
       return t1->is_unsigned == t2->is_unsigned;
     case TypeKind::TY_FLOAT:
     case TypeKind::TY_DOUBLE:
+    case TypeKind::TY_LDOUBLE:
       return true;
     case TypeKind::TY_PTR:
       return is_compatible(t1->base, t2->base);
@@ -100,6 +102,8 @@ static Type *get_common_type(Type *ty1, Type *ty2) {
   if (ty1->kind == TypeKind::TY_FUNC) return Type::pointer_to(ty1);
   if (ty2->kind == TypeKind::TY_FUNC) return Type::pointer_to(ty2);
 
+  if (ty1->kind == TypeKind::TY_LDOUBLE || ty2->kind == TypeKind::TY_LDOUBLE)
+    return Type::ty_ldouble;
   if (ty1->kind == TypeKind::TY_DOUBLE || ty2->kind == TypeKind::TY_DOUBLE) return Type::ty_double;
   if (ty1->kind == TypeKind::TY_FLOAT || ty2->kind == TypeKind::TY_FLOAT) return Type::ty_float;
 

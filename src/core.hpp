@@ -103,6 +103,7 @@ enum class TypeKind : int {
   TY_LONG,
   TY_FLOAT,
   TY_DOUBLE,
+  TY_LDOUBLE,
   TY_ENUM,
   TY_PTR,
   TY_FUNC,
@@ -127,7 +128,7 @@ class Token {
   TokenKind kind = TokenKind::TK_EOF;  // Token kind
   Token *next = nullptr;               // Next token
   int64_t val = 0;                     // If kind is TK_NUM, its value
-  double fval = 0;                     // If kind is TK_NUM, its value
+  long double fval = 0;                // If kind is TK_NUM, its value
   char *loc = nullptr;                 // Token location
   int len = 0;                         // Token length
   Type *ty = nullptr;                  // Used if TK_NUM or TK_STR
@@ -261,7 +262,7 @@ class Node {
 
   // Numeric literal
   int64_t val = 0;
-  double fval = 0;
+  long double fval = 0;
 
   Node() = default;
 };
@@ -283,6 +284,7 @@ class Type {
 
   static Type *ty_float;
   static Type *ty_double;
+  static Type *ty_ldouble;
 
   static Type *pointer_to(Type *base);
 
@@ -354,7 +356,8 @@ class Type {
   };
 
   bool is_flonum() {
-    return this->kind == TypeKind::TY_FLOAT || this->kind == TypeKind::TY_DOUBLE;
+    return this->kind == TypeKind::TY_FLOAT || this->kind == TypeKind::TY_DOUBLE ||
+           this->kind == TypeKind::TY_LDOUBLE;
   };
 
   bool is_numeric() { return this->is_integer() || this->is_flonum(); };
