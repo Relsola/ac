@@ -21,19 +21,10 @@
 // Scope for local variables, global variables, typedefs
 // or enum constants
 struct VarScope {
-  VarScope *next = nullptr;
-  char *name = nullptr;
   Obj *var = nullptr;
   Type *type_def = nullptr;
   Type *enum_ty = nullptr;
   int enum_val = 0;
-};
-
-// Scope for struct, union or enum tags
-struct TagScope {
-  TagScope *next = nullptr;
-  char *name = nullptr;
-  Type *ty = nullptr;
 };
 
 // Represents a block scope.
@@ -42,8 +33,8 @@ struct Scope {
 
   // C has two block scopes; one is for variables/typedefs and
   // the other is for struct/union/enum tags.
-  VarScope *vars = nullptr;
-  TagScope *tags = nullptr;
+  std::unordered_map<std::string, VarScope *> vars;
+  std::unordered_map<std::string, Type *> tags;
 };
 
 // Variable attributes such as typedef or extern.
@@ -174,18 +165,18 @@ static void leave_scope() { scope = scope->next; }
 
 // Find a variable by name.
 static VarScope *find_var(Token *tok) {
-  for (Scope *sc = scope; sc; sc = sc->next)
-    for (VarScope *sc2 = sc->vars; sc2; sc2 = sc2->next)
-      if (tok->equal(sc2->name)) return sc2;
-
+  for (Scope *sc = scope; sc; sc = sc->next) {
+    auto key = std::string(tok->loc, tok->len);
+    if (sc->vars.count(key)) return sc->vars[key];
+  }
   return nullptr;
 }
 
 static Type *find_tag(Token *tok) {
-  for (Scope *sc = scope; sc; sc = sc->next)
-    for (TagScope *sc2 = sc->tags; sc2; sc2 = sc2->next)
-      if (tok->equal(sc2->name)) return sc2->ty;
-
+  for (Scope *sc = scope; sc; sc = sc->next) {
+    auto key = std::string(tok->loc, tok->len);
+    if (sc->tags.count(key)) return sc->tags[key];
+  }
   return nullptr;
 }
 
@@ -254,9 +245,7 @@ Node *new_cast(Node *expr, Type *ty) {
 
 static VarScope *push_scope(char *name) {
   VarScope *sc = new VarScope();
-  sc->name = name;
-  sc->next = scope->vars;
-  scope->vars = sc;
+  scope->vars[std::string(name)] = sc;
   return sc;
 }
 
@@ -350,11 +339,7 @@ static Type *find_typedef(Token *tok) {
 }
 
 static void push_tag_scope(Token *tok, Type *ty) {
-  TagScope *sc = new TagScope();
-  sc->name = strndup(tok->loc, tok->len);
-  sc->ty = ty;
-  sc->next = scope->tags;
-  scope->tags = sc;
+  scope->tags[std::string(tok->loc, tok->len)] = ty;
 }
 
 // declspec = ("void" | "_Bool" | "char" | "short" | "int" | "long"
@@ -2464,11 +2449,11 @@ static Type *struct_union_decl(Token **rest, Token *tok) {
   if (tag) {
     // If this is a redefinition, overwrite a previous type.
     // Otherwise, register the struct type.
-    for (TagScope *sc = scope->tags; sc; sc = sc->next) {
-      if (tag->equal(sc->name)) {
-        *sc->ty = *ty;
-        return sc->ty;
-      }
+    auto key = std::string(tag->loc, tag->len);
+    Type *ty2 = scope->tags.count(key) ? scope->tags[key] : nullptr;
+    if (ty2) {
+      *ty2 = *ty;
+      return ty2;
     }
 
     push_tag_scope(tag, ty);
@@ -2937,9 +2922,10 @@ static Obj *find_func(char *name) {
   Scope *sc = scope;
   while (sc->next) sc = sc->next;
 
-  for (VarScope *sc2 = sc->vars; sc2; sc2 = sc2->next)
-    if (!strcmp(sc2->name, name) && sc2->var && sc2->var->is_function) return sc2->var;
-  return nullptr;
+  auto key = std::string(name);
+  return sc->vars.count(key) && sc->vars[key]->var && sc->vars[key]->var->is_function
+             ? sc->vars[key]->var
+             : nullptr;
 }
 
 static void mark_live(Obj *var) {

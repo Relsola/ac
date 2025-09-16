@@ -291,8 +291,8 @@ static CondIncl *push_cond_incl(Token *tok, bool included) {
 
 static Macro *find_macro(Token *tok) {
   if (tok->kind != TokenKind::TK_IDENT) return nullptr;
-  auto value = macros.find(std::string(tok->loc, tok->len));
-  return value == macros.end() ? nullptr : value->second;
+  auto key = std::string(tok->loc, tok->len);
+  return macros.count(key) ? macros[key] : nullptr;
 }
 
 static Macro *add_macro(char *name, bool is_objlike, Token *body) {
