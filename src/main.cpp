@@ -25,6 +25,7 @@ static bool opt_c;
 static bool opt_cc1;
 static bool opt_hash_hash_hash;
 static bool opt_static;
+static bool opt_shared;
 static char *opt_MF;
 static char *opt_MT;
 static char *opt_o;
@@ -278,6 +279,12 @@ static void parse_args(int argc, char **argv) {
     if (!strcmp(argv[i], "-static")) {
       opt_static = true;
       ld_extra_args.push_back("-static");
+      continue;
+    }
+
+    if (!strcmp(argv[i], "-shared")) {
+      opt_shared = true;
+      ld_extra_args.push_back("-shared");
       continue;
     }
 
@@ -547,9 +554,15 @@ static void run_linker(std::vector<char *> *inputs, char *output) {
   char *libpath = find_libpath();
   char *gcc_libpath = find_gcc_libpath();
 
-  arr.push_back(format("%s/crt1.o", libpath));
-  arr.push_back(format("%s/crti.o", libpath));
-  arr.push_back(format("%s/crtbegin.o", gcc_libpath));
+  if (opt_shared) {
+    arr.push_back(format("%s/crti.o", libpath));
+    arr.push_back(format("%s/crtbeginS.o", gcc_libpath));
+  } else {
+    arr.push_back(format("%s/crt1.o", libpath));
+    arr.push_back(format("%s/crti.o", libpath));
+    arr.push_back(format("%s/crtbegin.o", gcc_libpath));
+  }
+
   arr.push_back(format("-L%s", gcc_libpath));
   arr.push_back("-L/usr/lib64");
   arr.push_back("-L/lib64");
@@ -582,7 +595,11 @@ static void run_linker(std::vector<char *> *inputs, char *output) {
     arr.push_back("--no-as-needed");
   }
 
-  arr.push_back(format("%s/crtend.o", gcc_libpath));
+  if (opt_shared)
+    arr.push_back(format("%s/crtendS.o", gcc_libpath));
+  else
+    arr.push_back(format("%s/crtend.o", gcc_libpath));
+
   arr.push_back(format("%s/crtn.o", libpath));
   arr.push_back(nullptr);
 
