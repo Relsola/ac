@@ -250,9 +250,13 @@ class Node {
   char *unique_label = nullptr;
   Node *goto_next = nullptr;
 
-  // Switch-cases
+  // Switch
   Node *case_next = nullptr;
   Node *default_case = nullptr;
+
+  // Case
+  long begin = 0;
+  long end = 0;
 
   // "asm" string literal
   char *asm_str = nullptr;
