@@ -131,8 +131,8 @@ static Node *stmt(Token **rest, Token *tok);
 static Node *expr_stmt(Token **rest, Token *tok);
 static Node *expr(Token **rest, Token *tok);
 static int64_t eval(Node *node);
-static int64_t eval(Node *node, char **label);
-static int64_t eval_rval(Node *node, char **label);
+static int64_t eval(Node *node, char ***label);
+static int64_t eval_rval(Node *node, char ***label);
 static bool is_const_expr(Node *node);
 static Node *assign(Token **rest, Token *tok);
 static Node *logor(Token **rest, Token *tok);
@@ -1404,7 +1404,7 @@ static Relocation *write_gvar_data(Relocation *cur, Initializer *init, Type *ty,
     return cur;
   }
 
-  char *label = nullptr;
+  char **label = nullptr;
   uint64_t val = eval(init->expr, &label);
 
   if (!label) {
@@ -1759,7 +1759,7 @@ static int64_t eval(Node *node) { return eval(node, nullptr); }
 // is a pointer to a global variable and n is a positive/negative
 // number. The latter form is accepted only as an initialization
 // expression for a global variable.
-static int64_t eval(Node *node, char **label) {
+static int64_t eval(Node *node, char ***label) {
   add_type(node);
 
   if (node->ty->is_flonum()) return eval_double(node);
@@ -1829,6 +1829,9 @@ static int64_t eval(Node *node, char **label) {
     }
     case NodeKind::ND_ADDR:
       return eval_rval(node->lhs, label);
+    case NodeKind::ND_LABEL_VAL:
+      *label = &node->unique_label;
+      return 0;
     case NodeKind::ND_MEMBER:
       if (!label) error_tok(node->tok, "not a compile-time constant");
       if (node->ty->kind != TypeKind::TY_ARRAY) error_tok(node->tok, "invalid initializer");
@@ -1837,7 +1840,7 @@ static int64_t eval(Node *node, char **label) {
       if (!label) error_tok(node->tok, "not a compile-time constant");
       if (node->var->ty->kind != TypeKind::TY_ARRAY && node->var->ty->kind != TypeKind::TY_FUNC)
         error_tok(node->tok, "invalid initializer");
-      *label = node->var->name;
+      *label = &node->var->name;
       return 0;
     case NodeKind::ND_NUM:
       return node->val;
@@ -1846,11 +1849,11 @@ static int64_t eval(Node *node, char **label) {
   error_tok(node->tok, "not a compile-time constant");
 }
 
-static int64_t eval_rval(Node *node, char **label) {
+static int64_t eval_rval(Node *node, char ***label) {
   switch (node->kind) {
     case NodeKind::ND_VAR:
       if (node->var->is_local) error_tok(node->tok, "not a compile-time constant");
-      *label = node->var->name;
+      *label = &node->var->name;
       return 0;
     case NodeKind::ND_DEREF:
       return eval(node->lhs, label);

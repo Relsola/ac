@@ -26,7 +26,7 @@
 class Type;
 class Node;
 class Member;
-class Relocation;
+struct Relocation;
 struct Hideset;
 
 //
@@ -204,14 +204,11 @@ class Obj {
 // Global variable can be initialized either by a constant expression
 // or a pointer to another global variable. This struct represents the
 // latter.
-class Relocation {
- public:
+struct Relocation {
   Relocation *next = nullptr;
   int offset = 0;
-  char *label = nullptr;
+  char **label = nullptr;
   long addend = 0;
-
-  Relocation() = default;
 };
 
 class Node {
