@@ -37,14 +37,12 @@ struct MacroArg {
 };
 
 struct Macro {
-  Macro *next = nullptr;
   char *name = nullptr;
   bool is_objlike = false;  // Object-like or function-like
   MacroParam *params = nullptr;
   char *va_args_name = nullptr;
   bool is_variadic = false;
   Token *body = nullptr;
-  bool deleted = false;
   std::function<Token *(Token *)> handler = nullptr;
 };
 
@@ -61,7 +59,7 @@ struct Hideset {
   char *name = nullptr;
 };
 
-static Macro *macros = nullptr;
+static std::unordered_map<std::string, Macro *> macros;
 static CondIncl *cond_incl = nullptr;
 
 static Token *preprocess2(Token *tok);
@@ -293,20 +291,16 @@ static CondIncl *push_cond_incl(Token *tok, bool included) {
 
 static Macro *find_macro(Token *tok) {
   if (tok->kind != TokenKind::TK_IDENT) return nullptr;
-
-  for (Macro *m = macros; m; m = m->next)
-    if (strlen(m->name) == tok->len && !strncmp(m->name, tok->loc, tok->len))
-      return m->deleted ? nullptr : m;
-  return nullptr;
+  auto value = macros.find(std::string(tok->loc, tok->len));
+  return value == macros.end() ? nullptr : value->second;
 }
 
 static Macro *add_macro(char *name, bool is_objlike, Token *body) {
   Macro *m = new Macro();
-  m->next = macros;
   m->name = name;
   m->is_objlike = is_objlike;
   m->body = body;
-  macros = m;
+  macros[std::string(m->name)] = m;
   return m;
 }
 
@@ -850,7 +844,7 @@ void define_macro(char *name, char *buf) {
 
 void undef_macro(char *name) {
   Macro *m = add_macro(name, true, nullptr);
-  m->deleted = true;
+  macros.erase(std::string(name));
 }
 
 static Macro *add_builtin(char *name, std::function<Token *(Token *)> fn) {

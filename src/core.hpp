@@ -17,6 +17,7 @@
 #include <algorithm>
 #include <functional>
 #include <string>
+#include <unordered_map>
 #include <vector>
 
 #ifndef __GNUC__
